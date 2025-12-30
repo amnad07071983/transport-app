@@ -35,15 +35,15 @@ ws_item = sheet.worksheet(ITEM_SHEET)
 
 # ================== SAFE SESSION ==================
 def normalize_items():
-    if "items" not in st.session_state or not isinstance(st.session_state.items, list):
-        st.session_state.items = []
+    if "invoice_items" not in st.session_state or not isinstance(st.session_state.invoice_items, list):
+        st.session_state.invoice_items = []
 
     clean = []
-    for it in st.session_state.items:
+    for it in st.session_state.invoice_items:
         if isinstance(it, dict) and {"name", "qty", "price", "amount"} <= it.keys():
             clean.append(it)
 
-    st.session_state.items = clean
+    st.session_state.invoice_items = clean
 
 normalize_items()
 
@@ -108,8 +108,8 @@ st.title("🚚 ระบบใบกำกับขนส่งสินค้�
 st.subheader("📂 เปิด Invoice เก่า")
 
 inv_df = pd.DataFrame(ws_inv.get_all_records())
-
 selected_inv = ""
+
 if not inv_df.empty and "invoice_no" in inv_df.columns:
     selected_inv = st.selectbox("เลือก Invoice", [""] + inv_df["invoice_no"].tolist())
 
@@ -118,11 +118,11 @@ if selected_inv:
 
     if st.button("📥 โหลดมาแก้ไข"):
         st.session_state.edit_invoice_no = selected_inv
-        st.session_state.items = []
+        st.session_state.invoice_items = []
 
         for it in ws_item.get_all_records():
             if it["invoice_no"] == selected_inv:
-                st.session_state.items.append({
+                st.session_state.invoice_items.append({
                     "name": it["product"],
                     "qty": int(it["qty"]),
                     "price": float(it["price"]),
@@ -165,7 +165,7 @@ price = st.number_input("ราคา/หน่วย", min_value=0.0)
 
 if st.button("➕ เพิ่มสินค้า"):
     normalize_items()
-    st.session_state.items.append({
+    st.session_state.invoice_items.append({
         "name": pname,
         "qty": int(qty),
         "price": float(price),
@@ -174,12 +174,12 @@ if st.button("➕ เพิ่มสินค้า"):
 
 normalize_items()
 
-if len(st.session_state.items) > 0:
-    st.dataframe(pd.DataFrame(st.session_state.items))
+if st.session_state.invoice_items:
+    st.dataframe(pd.DataFrame(st.session_state.invoice_items))
 else:
     st.info("ยังไม่มีรายการสินค้า")
 
-subtotal = sum(i["amount"] for i in st.session_state.items)
+subtotal = sum(i["amount"] for i in st.session_state.invoice_items)
 vat = subtotal * 0.07
 total = subtotal + vat + shipping - discount
 
@@ -196,11 +196,11 @@ if st.button("💾 บันทึก Invoice"):
         subtotal, vat, shipping, discount, total, now
     ])
 
-    for it in st.session_state.items:
+    for it in st.session_state.invoice_items:
         ws_item.append_row([
             invoice_no, it["name"], it["qty"], it["price"], it["amount"]
         ])
 
-    st.session_state.items = []
+    st.session_state.invoice_items = []
     st.session_state.edit_invoice_no = None
     st.success(f"✅ บันทึก {invoice_no} เรียบร้อย")
