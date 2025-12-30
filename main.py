@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
@@ -9,16 +10,16 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 
-# ================== CONFIG ==================
-st.set_page_config(page_title="Transportation Invoice", layout="wide")
+# ================= CONFIG =================
+st.set_page_config("Transportation Invoice", layout="wide")
 
 SHEET_ID = "1ZdTeTyDkrvR3ZbIisCJdzKRlU8jMvFvnSvtEmQR2Tzs"
-INVOICE_SHEET = "Invoices"
+INV_SHEET = "Invoices"
 ITEM_SHEET = "InvoiceItems"
 
-# ================== GOOGLE SHEET ==================
+# ================= GOOGLE SHEET =================
 @st.cache_resource
-def init_gsheet():
+def init_sheet():
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive"
@@ -29,61 +30,42 @@ def init_gsheet():
     client = gspread.authorize(creds)
     return client.open_by_key(SHEET_ID)
 
-sheet = init_gsheet()
-ws_inv = sheet.worksheet(INVOICE_SHEET)
+sheet = init_sheet()
+ws_inv = sheet.worksheet(INV_SHEET)
 ws_item = sheet.worksheet(ITEM_SHEET)
 
-# ================== SAFE SESSION ==================
-def normalize_items():
-    if "invoice_items" not in st.session_state or not isinstance(st.session_state.invoice_items, list):
-        st.session_state.invoice_items = []
+inv_df = pd.DataFrame(ws_inv.get_all_records())
+item_df = pd.DataFrame(ws_item.get_all_records())
 
-    clean = []
-    for it in st.session_state.invoice_items:
-        if isinstance(it, dict) and {"name", "qty", "price", "amount"} <= it.keys():
-            clean.append(it)
+# ================= SESSION =================
+st.session_state.setdefault("invoice_items", [])
+st.session_state.setdefault("edit_invoice_no", None)
+st.session_state.setdefault("preview", False)
 
-    st.session_state.invoice_items = clean
-
-normalize_items()
-
-if "edit_invoice_no" not in st.session_state:
-    st.session_state.edit_invoice_no = None
-
-# ================== AUTO INVOICE ==================
-def generate_invoice_no():
-    rows = ws_inv.get_all_values()
-    if len(rows) <= 1:
+# ================= UTIL =================
+def next_invoice_no():
+    if inv_df.empty:
         return "INV-0001"
-    last = rows[-1][0]
-    num = int(last.split("-")[1]) + 1
-    return f"INV-{num:04d}"
+    last = inv_df["invoice_no"].iloc[-1]
+    n = int(last.split("-")[1]) + 1
+    return f"INV-{n:04d}"
 
-# ================== PDF ==================
-def generate_pdf(invoice, items):
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
+def pdf_invoice(inv, items):
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
 
     c.setFont("Helvetica-Bold", 16)
     c.drawString(2*cm, h-2*cm, "TRANSPORTATION INVOICE")
 
     c.setFont("Helvetica", 10)
-    c.drawString(2*cm, h-3*cm, f"Invoice No: {invoice['invoice_no']}")
-    c.drawString(2*cm, h-3.7*cm, f"Date: {invoice['date']}")
+    c.drawString(2*cm, h-3*cm, f"Invoice: {inv['invoice_no']}")
+    c.drawString(2*cm, h-3.7*cm, f"Date: {inv['date']}")
 
-    c.drawString(2*cm, h-5*cm, f"Customer: {invoice['customer']}")
-    c.drawString(2*cm, h-5.7*cm, f"Address: {invoice['address']}")
+    c.drawString(2*cm, h-5*cm, f"Customer: {inv['customer']}")
+    c.drawString(2*cm, h-5.7*cm, f"Address: {inv['address']}")
 
     y = h - 7*cm
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(2*cm, y, "สินค้า")
-    c.drawRightString(11*cm, y, "จำนวน")
-    c.drawRightString(14*cm, y, "ราคา")
-    c.drawRightString(18*cm, y, "รวม")
-
-    c.setFont("Helvetica", 10)
-    y -= 0.7*cm
     for it in items:
         c.drawString(2*cm, y, it["name"])
         c.drawRightString(11*cm, y, str(it["qty"]))
@@ -91,116 +73,108 @@ def generate_pdf(invoice, items):
         c.drawRightString(18*cm, y, f"{it['amount']:,.2f}")
         y -= 0.6*cm
 
-    y -= 0.6*cm
-    c.setFont("Helvetica-Bold", 11)
-    c.drawRightString(14*cm, y, "TOTAL")
-    c.drawRightString(18*cm, y, f"{invoice['total']:,.2f} บาท")
-
+    c.drawRightString(18*cm, y-1*cm, f"TOTAL {inv['total']:,.2f} บาท")
     c.showPage()
     c.save()
-    buffer.seek(0)
-    return buffer
+    buf.seek(0)
+    return buf
 
-# ================== UI ==================
+# ================= UI =================
 st.title("🚚 ระบบใบกำกับขนส่งสินค้า")
 
-# ===== OPEN OLD INVOICE =====
-st.subheader("📂 เปิด Invoice เก่า")
+if not inv_df.empty:
+    st.info(f"🔢 Invoice ล่าสุด: {inv_df['invoice_no'].iloc[-1]}")
 
-inv_df = pd.DataFrame(ws_inv.get_all_records())
-selected_inv = ""
+# ===== OPEN / DUPLICATE =====
+st.subheader("📂 Invoice เดิม")
+old = st.selectbox("เลือก Invoice", [""] + inv_df["invoice_no"].tolist())
 
-if not inv_df.empty and "invoice_no" in inv_df.columns:
-    selected_inv = st.selectbox("เลือก Invoice", [""] + inv_df["invoice_no"].tolist())
+if old:
+    row = inv_df[inv_df["invoice_no"] == old].iloc[0]
 
-if selected_inv:
-    inv_row = inv_df[inv_df["invoice_no"] == selected_inv].iloc[0]
-
-    if st.button("📥 โหลดมาแก้ไข"):
-        st.session_state.edit_invoice_no = selected_inv
-        st.session_state.invoice_items = []
-
-        for it in ws_item.get_all_records():
-            if it["invoice_no"] == selected_inv:
-                st.session_state.invoice_items.append({
-                    "name": it["product"],
-                    "qty": int(it["qty"]),
-                    "price": float(it["price"]),
-                    "amount": float(it["amount"])
-                })
-
-        normalize_items()
+    if st.button("📄 Duplicate"):
+        st.session_state.customer = row["customer"]
+        st.session_state.address = row["address"]
+        st.session_state.invoice_items = (
+            item_df[item_df["invoice_no"] == old]
+            .to_dict("records")
+        )
+        st.session_state.edit_invoice_no = None
         st.rerun()
 
-    if st.button("🖨 พิมพ์ PDF"):
-        items = [
-            {
-                "name": it["product"],
-                "qty": int(it["qty"]),
-                "price": float(it["price"]),
-                "amount": float(it["amount"])
-            }
-            for it in ws_item.get_all_records()
-            if it["invoice_no"] == selected_inv
-        ]
+    if st.button("🖨 PDF"):
+        pdf = pdf_invoice(
+            row.to_dict(),
+            item_df[item_df["invoice_no"] == old].to_dict("records")
+        )
+        st.download_button("⬇️ Download", pdf, f"{old}.pdf")
 
-        pdf = generate_pdf(inv_row.to_dict(), items)
-        st.download_button("⬇️ ดาวน์โหลด PDF", pdf, f"{selected_inv}.pdf")
+# ===== AUTO FOCUS =====
+components.html("""
+<script>
+setTimeout(()=>{
+ const el = window.parent.document.querySelector('input[aria-label="ชื่อลูกค้า"]');
+ if(el) el.focus();
+},100);
+</script>
+""", height=0)
 
 # ===== FORM =====
-st.subheader("📝 สร้าง / แก้ไข Invoice")
-
-customer = st.text_input("ชื่อลูกค้า")
-address = st.text_area("ที่อยู่")
+customer = st.text_input("ชื่อลูกค้า", value=st.session_state.get("customer",""))
+address = st.text_area("ที่อยู่", value=st.session_state.get("address",""))
 
 shipping = st.number_input("🚚 ค่าขนส่ง", value=0.0)
 discount = st.number_input("🔻 ส่วนลด", value=0.0)
 
-# ===== ITEMS =====
 st.subheader("📦 รายการสินค้า")
+c1,c2,c3 = st.columns(3)
+name = c1.text_input("สินค้า")
+qty = c2.number_input("จำนวน", 1, value=1)
+price = c3.number_input("ราคา", 0.0)
 
-pname = st.text_input("ชื่อสินค้า")
-qty = st.number_input("จำนวน", min_value=1, value=1)
-price = st.number_input("ราคา/หน่วย", min_value=0.0)
-
-if st.button("➕ เพิ่มสินค้า"):
-    normalize_items()
-    st.session_state.invoice_items.append({
-        "name": pname,
-        "qty": int(qty),
-        "price": float(price),
-        "amount": float(qty * price)
-    })
-
-normalize_items()
+if st.button("➕ เพิ่ม"):
+    if name:
+        st.session_state.invoice_items.append({
+            "name": name,
+            "qty": qty,
+            "price": price,
+            "amount": qty * price
+        })
 
 if st.session_state.invoice_items:
-    st.dataframe(pd.DataFrame(st.session_state.invoice_items))
-else:
-    st.info("ยังไม่มีรายการสินค้า")
+    df = pd.DataFrame(st.session_state.invoice_items)
+    st.dataframe(df, use_container_width=True)
 
 subtotal = sum(i["amount"] for i in st.session_state.invoice_items)
 vat = subtotal * 0.07
 total = subtotal + vat + shipping - discount
 
-st.markdown(f"### 💰 รวมสุทธิ: **{total:,.2f} บาท**")
+st.markdown(f"### 💰 รวมสุทธิ {total:,.2f} บาท")
 
-# ===== SAVE =====
-if st.button("💾 บันทึก Invoice"):
-    invoice_no = st.session_state.edit_invoice_no or generate_invoice_no()
-    today = datetime.today().strftime("%d/%m/%Y")
-    now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+# ===== PREVIEW =====
+if st.button("🧾 Preview"):
+    st.session_state.preview = True
 
-    ws_inv.append_row([
-        invoice_no, today, customer, address,
-        subtotal, vat, shipping, discount, total, now
-    ])
+if st.session_state.preview:
+    st.subheader("🧾 Preview Invoice")
+    st.dataframe(pd.DataFrame(st.session_state.invoice_items))
 
-    for it in st.session_state.invoice_items:
-        ws_item.append_row([
-            invoice_no, it["name"], it["qty"], it["price"], it["amount"]
+    if st.button("✅ ยืนยันบันทึก"):
+        inv_no = next_invoice_no()
+        today = datetime.today().strftime("%d/%m/%Y")
+        now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+        ws_inv.append_row([
+            inv_no, today, customer, address,
+            subtotal, vat, shipping, discount, total, now
         ])
 
-    st.session_state.invoice_items = []
-    st.session_state.edit_invoice_no = None
-    st.success(f"✅ บันทึก {invoice_no} เรียบร้อย")
+        for it in st.session_state.invoice_items:
+            ws_item.append_row([
+                inv_no, it["name"], it["qty"], it["price"], it["amount"]
+            ])
+
+        st.success(f"✅ บันทึก {inv_no} เรียบร้อย")
+        st.session_state.invoice_items = []
+        st.session_state.preview = False
+        st.rerun()
