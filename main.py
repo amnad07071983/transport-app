@@ -11,7 +11,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 
 # ================= CONFIG =================
-st.set_page_config("Transportation Invoice", layout="wide")
+st.set_page_config(page_title="Transportation Invoice", layout="wide")
 
 SHEET_ID = "1ZdTeTyDkrvR3ZbIisCJdzKRlU8jMvFvnSvtEmQR2Tzs"
 INV_SHEET = "Invoices"
@@ -39,7 +39,6 @@ item_df = pd.DataFrame(ws_item.get_all_records())
 
 # ================= SESSION =================
 st.session_state.setdefault("invoice_items", [])
-st.session_state.setdefault("edit_invoice_no", None)
 st.session_state.setdefault("preview", False)
 
 # ================= UTIL =================
@@ -85,30 +84,6 @@ st.title("🚚 ระบบใบกำกับขนส่งสินค้�
 if not inv_df.empty:
     st.info(f"🔢 Invoice ล่าสุด: {inv_df['invoice_no'].iloc[-1]}")
 
-# ===== OPEN / DUPLICATE =====
-st.subheader("📂 Invoice เดิม")
-old = st.selectbox("เลือก Invoice", [""] + inv_df["invoice_no"].tolist())
-
-if old:
-    row = inv_df[inv_df["invoice_no"] == old].iloc[0]
-
-    if st.button("📄 Duplicate"):
-        st.session_state.customer = row["customer"]
-        st.session_state.address = row["address"]
-        st.session_state.invoice_items = (
-            item_df[item_df["invoice_no"] == old]
-            .to_dict("records")
-        )
-        st.session_state.edit_invoice_no = None
-        st.rerun()
-
-    if st.button("🖨 PDF"):
-        pdf = pdf_invoice(
-            row.to_dict(),
-            item_df[item_df["invoice_no"] == old].to_dict("records")
-        )
-        st.download_button("⬇️ Download", pdf, f"{old}.pdf")
-
 # ===== AUTO FOCUS =====
 components.html("""
 <script>
@@ -120,19 +95,20 @@ setTimeout(()=>{
 """, height=0)
 
 # ===== FORM =====
-customer = st.text_input("ชื่อลูกค้า", value=st.session_state.get("customer",""))
-address = st.text_area("ที่อยู่", value=st.session_state.get("address",""))
+customer = st.text_input("ชื่อลูกค้า")
+address = st.text_area("ที่อยู่")
 
 shipping = st.number_input("🚚 ค่าขนส่ง", value=0.0)
 discount = st.number_input("🔻 ส่วนลด", value=0.0)
 
-st.subheader("📦 รายการสินค้า")
-c1,c2,c3 = st.columns(3)
-name = c1.text_input("สินค้า")
-qty = c2.number_input("จำนวน", 1, value=1)
-price = c3.number_input("ราคา", 0.0)
+# ===== ADD ITEM =====
+st.subheader("📦 เพิ่มสินค้า")
+c1, c2, c3 = st.columns(3)
+name = c1.text_input("สินค้า", key="pname")
+qty = c2.number_input("จำนวน", min_value=1, value=1, key="pqty")
+price = c3.number_input("ราคา", min_value=0.0, key="pprice")
 
-if st.button("➕ เพิ่ม"):
+if st.button("➕ เพิ่มสินค้า"):
     if name:
         st.session_state.invoice_items.append({
             "name": name,
@@ -140,23 +116,61 @@ if st.button("➕ เพิ่ม"):
             "price": price,
             "amount": qty * price
         })
+        st.session_state.pname = ""
+        st.session_state.pqty = 1
+        st.session_state.pprice = 0.0
 
+# ===== EDIT / DELETE ITEM =====
 if st.session_state.invoice_items:
-    df = pd.DataFrame(st.session_state.invoice_items)
-    st.dataframe(df, use_container_width=True)
+    st.subheader("✏️ แก้ไข / ลบสินค้า")
 
+    df_items = pd.DataFrame(st.session_state.invoice_items)
+    st.dataframe(df_items, use_container_width=True)
+
+    idx = st.selectbox(
+        "เลือกรายการ",
+        range(len(st.session_state.invoice_items)),
+        format_func=lambda i: st.session_state.invoice_items[i]["name"]
+    )
+
+    col1, col2, col3 = st.columns(3)
+    edit_qty = col1.number_input(
+        "แก้ไขจำนวน",
+        min_value=1,
+        value=st.session_state.invoice_items[idx]["qty"]
+    )
+    edit_price = col2.number_input(
+        "แก้ไขราคา",
+        min_value=0.0,
+        value=st.session_state.invoice_items[idx]["price"]
+    )
+
+    with col3:
+        if st.button("💾 อัปเดต"):
+            st.session_state.invoice_items[idx]["qty"] = edit_qty
+            st.session_state.invoice_items[idx]["price"] = edit_price
+            st.session_state.invoice_items[idx]["amount"] = edit_qty * edit_price
+            st.success("อัปเดตรายการแล้ว")
+            st.rerun()
+
+        if st.button("🗑 ลบรายการ"):
+            st.session_state.invoice_items.pop(idx)
+            st.success("ลบรายการแล้ว")
+            st.rerun()
+
+# ===== CALC =====
 subtotal = sum(i["amount"] for i in st.session_state.invoice_items)
 vat = subtotal * 0.07
 total = subtotal + vat + shipping - discount
 
-st.markdown(f"### 💰 รวมสุทธิ {total:,.2f} บาท")
+st.markdown(f"### 💰 รวมสุทธิ **{total:,.2f} บาท**")
 
-# ===== PREVIEW =====
-if st.button("🧾 Preview"):
+# ===== PREVIEW & SAVE =====
+if st.button("🧾 Preview Invoice") and st.session_state.invoice_items:
     st.session_state.preview = True
 
 if st.session_state.preview:
-    st.subheader("🧾 Preview Invoice")
+    st.subheader("🧾 Preview")
     st.dataframe(pd.DataFrame(st.session_state.invoice_items))
 
     if st.button("✅ ยืนยันบันทึก"):
@@ -177,4 +191,6 @@ if st.session_state.preview:
         st.success(f"✅ บันทึก {inv_no} เรียบร้อย")
         st.session_state.invoice_items = []
         st.session_state.preview = False
+
+        st.cache_resource.clear()
         st.rerun()
