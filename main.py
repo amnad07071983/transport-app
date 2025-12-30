@@ -34,15 +34,27 @@ ws_inv = sheet.worksheet(INVOICE_SHEET)
 ws_item = sheet.worksheet(ITEM_SHEET)
 
 # ================== SESSION STATE (SAFE INIT) ==================
-def ensure_list(key):
-    if key not in st.session_state or not isinstance(st.session_state[key], list):
-        st.session_state[key] = []
-
 def ensure_value(key, default):
     if key not in st.session_state:
         st.session_state[key] = default
 
-ensure_list("items")
+def ensure_items():
+    if "items" not in st.session_state or not isinstance(st.session_state.items, list):
+        st.session_state.items = []
+
+def normalize_items():
+    """ทำให้ items เป็น list[dict] ที่ถูกต้องเสมอ"""
+    ensure_items()
+    clean = []
+    for it in st.session_state.items:
+        if (
+            isinstance(it, dict)
+            and {"name", "qty", "price", "amount"}.issubset(it.keys())
+        ):
+            clean.append(it)
+    st.session_state.items = clean
+
+ensure_items()
 ensure_value("edit_invoice_no", None)
 ensure_value("customer", "")
 ensure_value("address", "")
@@ -121,9 +133,7 @@ def generate_pdf(invoice, items):
     return buffer
 
 # ================== LOAD DATA ==================
-raw_inv = ws_inv.get_all_records()
-inv_df = pd.DataFrame(raw_inv) if raw_inv else pd.DataFrame()
-
+inv_df = pd.DataFrame(ws_inv.get_all_records())
 if not inv_df.empty:
     inv_df.columns = inv_df.columns.str.strip().str.lower()
 
@@ -195,7 +205,7 @@ qty = st.number_input("จำนวน", min_value=1, value=1)
 price = st.number_input("ราคา/หน่วย", min_value=0.0)
 
 if st.button("➕ เพิ่มสินค้า"):
-    ensure_list("items")
+    ensure_items()
     if pname:
         st.session_state.items.append({
             "name": pname,
@@ -204,8 +214,12 @@ if st.button("➕ เพิ่มสินค้า"):
             "amount": float(qty * price)
         })
 
+normalize_items()
+
 if st.session_state.items:
     st.dataframe(pd.DataFrame(st.session_state.items))
+else:
+    st.info("ℹ️ ยังไม่มีรายการสินค้า")
 
 subtotal = sum(i["amount"] for i in st.session_state.items)
 vat = subtotal * 0.07
