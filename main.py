@@ -27,7 +27,8 @@ def init_sheet():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
         st.secrets["gcp_service_account"], scope
     )
-    return gspread.authorize(creds).open_by_key(SHEET_ID)
+    client = gspread.authorize(creds)
+    return client.open_by_key(SHEET_ID)
 
 sheet = init_sheet()
 ws_inv = sheet.worksheet(INV_SHEET)
@@ -39,20 +40,27 @@ item_df = pd.DataFrame(ws_item.get_all_records())
 # ================= SESSION =================
 st.session_state.setdefault("items", [])
 st.session_state.setdefault("preview", False)
-st.session_state.setdefault("edit_invoice", None)
+st.session_state.setdefault("customer", "")
+st.session_state.setdefault("address", "")
+st.session_state.setdefault("shipping", 0.0)
+st.session_state.setdefault("discount", 0.0)
+
+# ================= SAFE GUARD =================
+def normalize_items():
+    if "items" not in st.session_state or st.session_state.items is None:
+        st.session_state.items = []
+    if isinstance(st.session_state.items, dict):
+        st.session_state.items = [st.session_state.items]
+    if not isinstance(st.session_state.items, list):
+        st.session_state.items = []
 
 # ================= UTIL =================
 def next_invoice_no():
     if inv_df.empty:
         return "INV-0001"
-    n = int(inv_df["invoice_no"].iloc[-1].split("-")[1]) + 1
+    last = inv_df["invoice_no"].iloc[-1]
+    n = int(last.split("-")[1]) + 1
     return f"INV-{n:04d}"
-
-def col(row, *names):
-    for n in names:
-        if n in row:
-            return row[n]
-    return 0
 
 def pdf_invoice(inv, items):
     buf = io.BytesIO()
@@ -71,15 +79,13 @@ def pdf_invoice(inv, items):
 
     y = h - 7*cm
     for it in items:
-        c.drawString(2*cm, y, it["name"])
+        c.drawString(2*cm, y, it["product"])
         c.drawRightString(11*cm, y, str(it["qty"]))
         c.drawRightString(14*cm, y, f"{it['price']:,.2f}")
         c.drawRightString(18*cm, y, f"{it['amount']:,.2f}")
         y -= 0.6*cm
 
-    c.setFont("Helvetica-Bold", 11)
     c.drawRightString(18*cm, y-1*cm, f"TOTAL {inv['total']:,.2f} บาท")
-
     c.showPage()
     c.save()
     buf.seek(0)
@@ -88,54 +94,38 @@ def pdf_invoice(inv, items):
 # ================= UI =================
 st.title("🚚 ระบบใบกำกับขนส่งสินค้า")
 
-# ===== SEARCH =====
-search = st.text_input("🔍 ค้นหา Invoice")
-show_df = inv_df
-if search:
-    show_df = inv_df[inv_df["invoice_no"].str.contains(search, case=False)]
+# ===== SEARCH / DUPLICATE =====
+st.subheader("🔍 ค้นหา / ทำซ้ำ Invoice")
+selected = st.selectbox(
+    "เลือก Invoice",
+    [""] + inv_df["invoice_no"].tolist() if not inv_df.empty else [""]
+)
 
-st.dataframe(show_df, use_container_width=True)
-
-# ===== DUPLICATE / EDIT =====
-sel = st.selectbox("📂 เลือก Invoice", [""] + show_df["invoice_no"].tolist())
-
-if sel:
-    inv = inv_df[inv_df["invoice_no"] == sel].iloc[0]
-    its = item_df[item_df["invoice_no"] == sel]
+if selected:
+    inv_row = inv_df[inv_df["invoice_no"] == selected].iloc[0]
+    items = item_df[item_df["invoice_no"] == selected]
 
     if st.button("📄 Duplicate Invoice"):
+        st.session_state.customer = inv_row["customer"]
+        st.session_state.address = inv_row["address"]
+        st.session_state.shipping = float(inv_row["shipping"])
+        st.session_state.discount = float(inv_row["discount"])
+
         st.session_state.items = [
             {
-                "name": col(r, "name", "product", "item_name"),
-                "qty": int(col(r, "qty", "quantity")),
-                "price": float(col(r, "price", "unit_price")),
-                "amount": float(col(r, "amount", "total"))
+                "product": r["product"],
+                "qty": int(r["qty"]),
+                "price": float(r["price"]),
+                "amount": float(r["amount"])
             }
-            for _, r in its.iterrows()
+            for _, r in items.iterrows()
         ]
-        st.session_state.customer = inv["customer"]
-        st.session_state.address = inv["address"]
-        st.session_state.edit_invoice = None
+        st.success("📄 โหลด Invoice เดิมแล้ว")
         st.rerun()
 
-    if st.button("✏️ แก้ไข Invoice"):
-        st.session_state.edit_invoice = sel
-        st.session_state.items = [
-            {
-                "name": col(r, "name", "product"),
-                "qty": int(col(r, "qty")),
-                "price": float(col(r, "price")),
-                "amount": float(col(r, "amount"))
-            }
-            for _, r in its.iterrows()
-        ]
-        st.session_state.customer = inv["customer"]
-        st.session_state.address = inv["address"]
-        st.rerun()
-
-    if st.button("🧾 PDF"):
-        pdf = pdf_invoice(inv.to_dict(), st.session_state.items)
-        st.download_button("⬇️ Download PDF", pdf, f"{sel}.pdf")
+    if st.button("🖨 Export PDF"):
+        pdf = pdf_invoice(inv_row.to_dict(), items.to_dict("records"))
+        st.download_button("⬇️ Download PDF", pdf, f"{selected}.pdf")
 
 # ===== FORM =====
 components.html("""
@@ -143,84 +133,92 @@ components.html("""
 setTimeout(()=> {
   const el = window.parent.document.querySelector('input[aria-label="ชื่อลูกค้า"]');
   if(el) el.focus();
-},100);
+}, 100);
 </script>
 """, height=0)
 
-customer = st.text_input("ชื่อลูกค้า", st.session_state.get("customer",""))
-address = st.text_area("ที่อยู่", st.session_state.get("address",""))
-
-shipping = float(st.number_input("🚚 ค่าขนส่ง", value=0.0))
-discount = float(st.number_input("🔻 ส่วนลด", value=0.0))
+st.subheader("🧾 ข้อมูลลูกค้า")
+st.session_state.customer = st.text_input("ชื่อลูกค้า", st.session_state.customer)
+st.session_state.address = st.text_area("ที่อยู่", st.session_state.address)
+st.session_state.shipping = st.number_input("🚚 ค่าขนส่ง", value=float(st.session_state.shipping))
+st.session_state.discount = st.number_input("🔻 ส่วนลด", value=float(st.session_state.discount))
 
 # ===== ADD ITEM =====
 st.subheader("📦 เพิ่มสินค้า")
-c1,c2,c3 = st.columns(3)
-name = c1.text_input("สินค้า")
-qty = int(c2.number_input("จำนวน", min_value=1, value=1))
-price = float(c3.number_input("ราคา", min_value=0.0))
+c1, c2, c3 = st.columns(3)
+pname = c1.text_input("สินค้า")
+pqty = c2.number_input("จำนวน", min_value=1, value=1)
+pprice = c3.number_input("ราคา", min_value=0.0, value=0.0)
 
 if st.button("➕ เพิ่มสินค้า"):
-    st.session_state.items.append({
-        "name": name,
-        "qty": qty,
-        "price": price,
-        "amount": qty * price
-    })
+    if pname:
+        normalize_items()
+        st.session_state.items.append({
+            "product": pname,
+            "qty": int(pqty),
+            "price": float(pprice),
+            "amount": float(pqty * pprice)
+        })
+        st.rerun()
 
-# ===== EDIT ITEMS =====
+# ===== ITEM TABLE =====
+normalize_items()
 if st.session_state.items:
     df = pd.DataFrame(st.session_state.items)
     st.dataframe(df, use_container_width=True)
 
-    idx = st.selectbox(
-        "เลือกรายการ",
-        range(len(st.session_state.items)),
-        format_func=lambda i: st.session_state.items[i]["name"]
-    )
-
-    q = int(st.number_input("แก้ไขจำนวน", min_value=1, value=int(st.session_state.items[idx]["qty"])))
-    p = float(st.number_input("แก้ไขราคา", min_value=0.0, value=float(st.session_state.items[idx]["price"])))
+    idx = st.selectbox("เลือกรายการแก้ไข", range(len(df)))
+    q = st.number_input("แก้ไขจำนวน", min_value=1, value=int(df.loc[idx, "qty"]))
+    p = st.number_input("แก้ไขราคา", min_value=0.0, value=float(df.loc[idx, "price"]))
 
     if st.button("💾 อัปเดต"):
-        st.session_state.items[idx].update(
-            qty=q,
-            price=p,
-            amount=q*p
-        )
+        st.session_state.items[idx]["qty"] = q
+        st.session_state.items[idx]["price"] = p
+        st.session_state.items[idx]["amount"] = q * p
         st.rerun()
 
-    if st.button("🗑 ลบ"):
+    if st.button("🗑 ลบรายการ"):
         st.session_state.items.pop(idx)
         st.rerun()
 
-# ===== CALC =====
+# ===== TOTAL =====
 subtotal = sum(i["amount"] for i in st.session_state.items)
 vat = subtotal * 0.07
-total = subtotal + vat + shipping - discount
+total = subtotal + vat + st.session_state.shipping - st.session_state.discount
 
 st.markdown(f"### 💰 รวมสุทธิ **{total:,.2f} บาท**")
 
-# ===== SAVE =====
-if st.button("🧾 Preview"):
+# ===== PREVIEW & SAVE =====
+if st.button("🧾 Preview Invoice") and st.session_state.items:
     st.session_state.preview = True
 
 if st.session_state.preview:
-    if st.button("✅ บันทึก Invoice"):
-        inv_no = st.session_state.edit_invoice or next_invoice_no()
+    st.subheader("🧾 Preview")
+    st.dataframe(pd.DataFrame(st.session_state.items))
+
+    if st.button("✅ ยืนยันบันทึก"):
+        inv_no = next_invoice_no()
         today = datetime.today().strftime("%d/%m/%Y")
         now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-        if st.session_state.edit_invoice:
-            row = inv_df[inv_df["invoice_no"] == inv_no].index[0] + 2
-            ws_inv.delete_rows(row)
-            for i in range(len(ws_item.get_all_values()),1,-1):
-                if ws_item.cell(i,1).value == inv_no:
-                    ws_item.delete_rows(i)
+        ws_inv.append_row([
+            inv_no, today,
+            st.session_state.customer,
+            st.session_state.address,
+            subtotal, vat,
+            st.session_state.shipping,
+            st.session_state.discount,
+            total, now
+        ])
 
-        ws_inv.append_row([inv_no,today,customer,address,subtotal,vat,shipping,discount,total,now])
         for it in st.session_state.items:
-            ws_item.append_row([inv_no,it["name"],it["qty"],it["price"],it["amount"]])
+            ws_item.append_row([
+                inv_no,
+                it["product"],
+                it["qty"],
+                it["price"],
+                it["amount"]
+            ])
 
         st.success(f"✅ บันทึก {inv_no} เรียบร้อย")
         st.session_state.items = []
