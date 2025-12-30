@@ -13,7 +13,7 @@ from reportlab.lib.units import cm
 # ================== CONFIG ==================
 st.set_page_config(page_title="Transportation Invoice", layout="wide")
 
-SHEET_ID = "https://docs.google.com/spreadsheets/d/1ZdTeTyDkrvR3ZbIisCJdzKRlU8jMvFvnSvtEmQR2Tzs"
+SHEET_ID = "1ZdTeTyDkrvR3ZbIisCJdzKRlU8jMvFvnSvtEmQR2Tzs"
 SHEET_NAME = "RawData"
 
 # ================== GOOGLE SHEET ==================
