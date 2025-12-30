@@ -1,11 +1,12 @@
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 import pandas as pd
 from datetime import datetime
 import io
 
-# ===== PDF =====
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
@@ -14,11 +15,12 @@ from reportlab.lib.units import cm
 st.set_page_config(page_title="Transportation Invoice", layout="wide")
 
 SHEET_ID = "1ZdTeTyDkrvR3ZbIisCJdzKRlU8jMvFvnSvtEmQR2Tzs"
-SHEET_NAME = "RawData"
+INVOICE_SHEET = "Invoices"
+ITEM_SHEET = "InvoiceItems"
 
-# ================== GOOGLE SHEET ==================
+# ================== GOOGLE AUTH ==================
 @st.cache_resource
-def init_gsheet():
+def init_services():
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive"
@@ -26,124 +28,50 @@ def init_gsheet():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
         st.secrets["gcp_service_account"], scope
     )
-    client = gspread.authorize(creds)
-    return client.open_by_key(SHEET_ID)
+    gs_client = gspread.authorize(creds)
+    drive_service = build("drive", "v3", credentials=creds)
+    return gs_client, drive_service
 
-sheet = init_gsheet()
-ws = sheet.worksheet(SHEET_NAME)
+gs, drive = init_services()
+sheet = gs.open_by_key(SHEET_ID)
+ws_inv = sheet.worksheet(INVOICE_SHEET)
+ws_item = sheet.worksheet(ITEM_SHEET)
 
-# ================== PDF FUNCTION ==================
-def generate_pdf(data):
+# ================== INVOICE RUNNING ==================
+def generate_invoice_no():
+    records = ws_inv.get_all_records()
+    if not records:
+        return "INV-0001"
+    last = records[-1]["invoice_no"]
+    num = int(last.split("-")[1]) + 1
+    return f"INV-{num:04d}"
+
+# ================== PDF ==================
+def generate_pdf(invoice, items):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
+    w, h = A4
 
-    # ===== Header =====
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(2 * cm, height - 2 * cm, "TRANSPORTATION INVOICE")
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(2*cm, h-2*cm, "TRANSPORTATION INVOICE")
 
     c.setFont("Helvetica", 10)
-    c.drawString(2 * cm, height - 3 * cm, f"Invoice No: {data['invoice_no']}")
-    c.drawString(2 * cm, height - 3.7 * cm, f"Date: {data['invoice_date']}")
+    c.drawString(2*cm, h-3*cm, f"Invoice No: {invoice['invoice_no']}")
+    c.drawString(2*cm, h-3.7*cm, f"Date: {invoice['date']}")
 
-    # ===== Customer =====
-    c.drawString(2 * cm, height - 5 * cm, f"Customer: {data['customer_name']}")
-    c.drawString(2 * cm, height - 5.7 * cm, f"Address: {data['customer_address']}")
+    c.drawString(2*cm, h-5*cm, f"Customer: {invoice['customer']}")
+    c.drawString(2*cm, h-5.7*cm, f"Address: {invoice['address']}")
 
-    # ===== Table Header =====
-    y = height - 7 * cm
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(2 * cm, y, "Product")
-    c.drawString(9 * cm, y, "Qty")
-    c.drawString(11 * cm, y, "Price")
-    c.drawString(14 * cm, y, "Amount")
+    y = h-7*cm
+    c.setFont("Helvetica-Bold",10)
+    c.drawString(2*cm,y,"สินค้า")
+    c.drawRightString(11*cm,y,"จำนวน")
+    c.drawRightString(14*cm,y,"ราคา")
+    c.drawRightString(18*cm,y,"รวม")
 
-    # ===== Table Data =====
-    c.setFont("Helvetica", 10)
-    y -= 0.8 * cm
-    c.drawString(2 * cm, y, data["product_name"])
-    c.drawString(9 * cm, y, str(data["quantity"]))
-    c.drawString(11 * cm, y, f"{data['price']:,.2f}")
-    c.drawString(14 * cm, y, f"{data['amount']:,.2f}")
-
-    # ===== Total =====
-    y -= 2 * cm
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(11 * cm, y, "Total")
-    c.drawString(14 * cm, y, f"{data['amount']:,.2f} บาท")
-
-    c.showPage()
-    c.save()
-    buffer.seek(0)
-    return buffer
-
-# ================== HEADER ==================
-st.title("🚚 ระบบใบกำกับขนส่งสินค้า")
-
-# ================== FORM ==================
-st.subheader("📝 กรอกข้อมูลใบกำกับขนส่ง")
-
-with st.form("invoice_form"):
-    c1, c2 = st.columns(2)
-
-    with c1:
-        invoice_no = st.text_input("เลขที่ใบกำกับ")
-        invoice_date = st.date_input("วันที่ใบกำกับ", value=datetime.today())
-        customer_name = st.text_input("ชื่อลูกค้า")
-        customer_address = st.text_area("ที่อยู่ลูกค้า")
-
-    with c2:
-        product_name = st.text_input("ชื่อสินค้า")
-        quantity = st.number_input("จำนวน", min_value=1, value=1)
-        price = st.number_input("ราคา/หน่วย", min_value=0.0, value=0.0)
-
-    submit = st.form_submit_button("💾 บันทึกข้อมูล")
-
-# ================== SAVE ==================
-if submit:
-    amount = quantity * price
-    created_at = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-
-    ws.append_row([
-        invoice_no,
-        invoice_date.strftime("%d/%m/%Y"),
-        customer_name,
-        customer_address,
-        product_name,
-        quantity,
-        price,
-        amount,
-        created_at
-    ])
-
-    st.success("✅ บันทึกข้อมูลเรียบร้อย")
-
-    pdf_data = {
-        "invoice_no": invoice_no,
-        "invoice_date": invoice_date.strftime("%d/%m/%Y"),
-        "customer_name": customer_name,
-        "customer_address": customer_address,
-        "product_name": product_name,
-        "quantity": quantity,
-        "price": price,
-        "amount": amount
-    }
-
-    st.download_button(
-        "🖨 ดาวน์โหลด PDF",
-        generate_pdf(pdf_data),
-        file_name=f"invoice_{invoice_no}.pdf",
-        mime="application/pdf"
-    )
-
-st.divider()
-
-# ================== TABLE ==================
-st.subheader("📊 ข้อมูลใบกำกับทั้งหมด")
-
-data = ws.get_all_records()
-if data:
-    df = pd.DataFrame(data)
-    st.dataframe(df, use_container_width=True)
-else:
-    st.info("ยังไม่มีข้อมูล")
+    c.setFont("Helvetica",10)
+    y -= 0.7*cm
+    for it in items:
+        c.drawString(2*cm,y,it["name"])
+        c.drawRightString(11*cm,y,str(it["qty"]))
+        c.drawRightString(14*cm,y,f"{it['pr]()*
