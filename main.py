@@ -35,11 +35,13 @@ ws_inv = sheet.worksheet(INV_SHEET)
 ws_item = sheet.worksheet(ITEM_SHEET)
 
 inv_df = pd.DataFrame(ws_inv.get_all_records())
-item_df = pd.DataFrame(ws_item.get_all_records())
 
 # ================= SESSION =================
-st.session_state.setdefault("invoice_items", [])
-st.session_state.setdefault("preview", False)
+if "invoice_items" not in st.session_state:
+    st.session_state.invoice_items = []
+
+if "preview" not in st.session_state:
+    st.session_state.preview = False
 
 # ================= UTIL =================
 def next_invoice_no():
@@ -49,34 +51,17 @@ def next_invoice_no():
     n = int(last.split("-")[1]) + 1
     return f"INV-{n:04d}"
 
-def pdf_invoice(inv, items):
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    w, h = A4
-
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(2*cm, h-2*cm, "TRANSPORTATION INVOICE")
-
-    c.setFont("Helvetica", 10)
-    c.drawString(2*cm, h-3*cm, f"Invoice: {inv['invoice_no']}")
-    c.drawString(2*cm, h-3.7*cm, f"Date: {inv['date']}")
-
-    c.drawString(2*cm, h-5*cm, f"Customer: {inv['customer']}")
-    c.drawString(2*cm, h-5.7*cm, f"Address: {inv['address']}")
-
-    y = h - 7*cm
-    for it in items:
-        c.drawString(2*cm, y, it["name"])
-        c.drawRightString(11*cm, y, str(it["qty"]))
-        c.drawRightString(14*cm, y, f"{it['price']:,.2f}")
-        c.drawRightString(18*cm, y, f"{it['amount']:,.2f}")
-        y -= 0.6*cm
-
-    c.drawRightString(18*cm, y-1*cm, f"TOTAL {inv['total']:,.2f} บาท")
-    c.showPage()
-    c.save()
-    buf.seek(0)
-    return buf
+def add_item():
+    if st.session_state.pname:
+        st.session_state.invoice_items.append({
+            "name": st.session_state.pname,
+            "qty": st.session_state.pqty,
+            "price": st.session_state.pprice,
+            "amount": st.session_state.pqty * st.session_state.pprice
+        })
+        st.session_state.pname = ""
+        st.session_state.pqty = 1
+        st.session_state.pprice = 0.0
 
 # ================= UI =================
 st.title("🚚 ระบบใบกำกับขนส่งสินค้า")
@@ -87,10 +72,10 @@ if not inv_df.empty:
 # ===== AUTO FOCUS =====
 components.html("""
 <script>
-setTimeout(()=>{
- const el = window.parent.document.querySelector('input[aria-label="ชื่อลูกค้า"]');
- if(el) el.focus();
-},100);
+setTimeout(()=> {
+  const el = window.parent.document.querySelector('input[aria-label="ชื่อลูกค้า"]');
+  if(el) el.focus();
+}, 100);
 </script>
 """, height=0)
 
@@ -104,21 +89,12 @@ discount = st.number_input("🔻 ส่วนลด", value=0.0)
 # ===== ADD ITEM =====
 st.subheader("📦 เพิ่มสินค้า")
 c1, c2, c3 = st.columns(3)
-name = c1.text_input("สินค้า", key="pname")
-qty = c2.number_input("จำนวน", min_value=1, value=1, key="pqty")
-price = c3.number_input("ราคา", min_value=0.0, key="pprice")
 
-if st.button("➕ เพิ่มสินค้า"):
-    if name:
-        st.session_state.invoice_items.append({
-            "name": name,
-            "qty": qty,
-            "price": price,
-            "amount": qty * price
-        })
-        st.session_state.pname = ""
-        st.session_state.pqty = 1
-        st.session_state.pprice = 0.0
+c1.text_input("สินค้า", key="pname")
+c2.number_input("จำนวน", min_value=1, value=1, key="pqty")
+c3.number_input("ราคา", min_value=0.0, value=0.0, key="pprice")
+
+st.button("➕ เพิ่มสินค้า", on_click=add_item)
 
 # ===== EDIT / DELETE ITEM =====
 if st.session_state.invoice_items:
@@ -134,29 +110,30 @@ if st.session_state.invoice_items:
     )
 
     col1, col2, col3 = st.columns(3)
+
     edit_qty = col1.number_input(
         "แก้ไขจำนวน",
         min_value=1,
         value=st.session_state.invoice_items[idx]["qty"]
     )
+
     edit_price = col2.number_input(
         "แก้ไขราคา",
         min_value=0.0,
         value=st.session_state.invoice_items[idx]["price"]
     )
 
-    with col3:
-        if st.button("💾 อัปเดต"):
-            st.session_state.invoice_items[idx]["qty"] = edit_qty
-            st.session_state.invoice_items[idx]["price"] = edit_price
-            st.session_state.invoice_items[idx]["amount"] = edit_qty * edit_price
-            st.success("อัปเดตรายการแล้ว")
-            st.rerun()
+    if col3.button("💾 อัปเดต"):
+        st.session_state.invoice_items[idx]["qty"] = edit_qty
+        st.session_state.invoice_items[idx]["price"] = edit_price
+        st.session_state.invoice_items[idx]["amount"] = edit_qty * edit_price
+        st.success("อัปเดตรายการแล้ว")
+        st.rerun()
 
-        if st.button("🗑 ลบรายการ"):
-            st.session_state.invoice_items.pop(idx)
-            st.success("ลบรายการแล้ว")
-            st.rerun()
+    if col3.button("🗑 ลบรายการ"):
+        st.session_state.invoice_items.pop(idx)
+        st.success("ลบรายการแล้ว")
+        st.rerun()
 
 # ===== CALC =====
 subtotal = sum(i["amount"] for i in st.session_state.invoice_items)
@@ -189,8 +166,8 @@ if st.session_state.preview:
             ])
 
         st.success(f"✅ บันทึก {inv_no} เรียบร้อย")
+
         st.session_state.invoice_items = []
         st.session_state.preview = False
-
         st.cache_resource.clear()
         st.rerun()
