@@ -34,11 +34,18 @@ ws_inv = sheet.worksheet(INVOICE_SHEET)
 ws_item = sheet.worksheet(ITEM_SHEET)
 
 # ================== SAFE SESSION ==================
-def safe_items():
+def normalize_items():
     if "items" not in st.session_state or not isinstance(st.session_state.items, list):
         st.session_state.items = []
 
-safe_items()
+    clean = []
+    for it in st.session_state.items:
+        if isinstance(it, dict) and {"name", "qty", "price", "amount"} <= it.keys():
+            clean.append(it)
+
+    st.session_state.items = clean
+
+normalize_items()
 
 if "edit_invoice_no" not in st.session_state:
     st.session_state.edit_invoice_no = None
@@ -84,8 +91,8 @@ def generate_pdf(invoice, items):
         c.drawRightString(18*cm, y, f"{it['amount']:,.2f}")
         y -= 0.6*cm
 
-    y -= 0.4*cm
-    c.setFont("Helvetica-Bold", 10)
+    y -= 0.6*cm
+    c.setFont("Helvetica-Bold", 11)
     c.drawRightString(14*cm, y, "TOTAL")
     c.drawRightString(18*cm, y, f"{invoice['total']:,.2f} บาท")
 
@@ -99,12 +106,12 @@ st.title("🚚 ระบบใบกำกับขนส่งสินค้�
 
 # ===== OPEN OLD INVOICE =====
 st.subheader("📂 เปิด Invoice เก่า")
+
 inv_df = pd.DataFrame(ws_inv.get_all_records())
 
-if "invoice_no" in inv_df.columns:
+selected_inv = ""
+if not inv_df.empty and "invoice_no" in inv_df.columns:
     selected_inv = st.selectbox("เลือก Invoice", [""] + inv_df["invoice_no"].tolist())
-else:
-    selected_inv = ""
 
 if selected_inv:
     inv_row = inv_df[inv_df["invoice_no"] == selected_inv].iloc[0]
@@ -115,26 +122,28 @@ if selected_inv:
 
         for it in ws_item.get_all_records():
             if it["invoice_no"] == selected_inv:
-                safe_items()
                 st.session_state.items.append({
                     "name": it["product"],
                     "qty": int(it["qty"]),
                     "price": float(it["price"]),
                     "amount": float(it["amount"])
                 })
+
+        normalize_items()
         st.rerun()
 
     if st.button("🖨 พิมพ์ PDF"):
         items = [
             {
                 "name": it["product"],
-                "qty": it["qty"],
-                "price": it["price"],
-                "amount": it["amount"]
+                "qty": int(it["qty"]),
+                "price": float(it["price"]),
+                "amount": float(it["amount"])
             }
             for it in ws_item.get_all_records()
             if it["invoice_no"] == selected_inv
         ]
+
         pdf = generate_pdf(inv_row.to_dict(), items)
         st.download_button("⬇️ ดาวน์โหลด PDF", pdf, f"{selected_inv}.pdf")
 
@@ -147,13 +156,15 @@ address = st.text_area("ที่อยู่")
 shipping = st.number_input("🚚 ค่าขนส่ง", value=0.0)
 discount = st.number_input("🔻 ส่วนลด", value=0.0)
 
+# ===== ITEMS =====
 st.subheader("📦 รายการสินค้า")
+
 pname = st.text_input("ชื่อสินค้า")
 qty = st.number_input("จำนวน", min_value=1, value=1)
 price = st.number_input("ราคา/หน่วย", min_value=0.0)
 
 if st.button("➕ เพิ่มสินค้า"):
-    safe_items()
+    normalize_items()
     st.session_state.items.append({
         "name": pname,
         "qty": int(qty),
@@ -161,8 +172,9 @@ if st.button("➕ เพิ่มสินค้า"):
         "amount": float(qty * price)
     })
 
-safe_items()
-if st.session_state.items:
+normalize_items()
+
+if len(st.session_state.items) > 0:
     st.dataframe(pd.DataFrame(st.session_state.items))
 else:
     st.info("ยังไม่มีรายการสินค้า")
