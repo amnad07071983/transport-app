@@ -22,7 +22,7 @@ except:
     TH_FONT = "Helvetica-Bold"
     st.warning("ไม่พบฟอนต์ THSARABUN ใช้ Helvetica แทน")
 
-SHEET_ID = "1ZdTeTeDkrvR3ZbIisCJdzKRlU8jMvFvnSvtEmQR2Tzs"
+SHEET_ID = "1ZdTeTyDkrvR3ZbIisCJdzKRlU8jMvFvnSvtEmQR2Tzs"
 INV_SHEET = "Invoices"
 ITEM_SHEET = "InvoiceItems"
 
