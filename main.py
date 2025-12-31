@@ -213,8 +213,8 @@ if st.session_state.invoice_items:
     st.write("---")
     for i, item in enumerate(st.session_state.invoice_items):
         cl = st.columns([4, 1])
-       # ใช้ .get('unit', '') เพื่อว่าถ้าหาฟิลด์ unit ไม่เจอ จะให้แสดงเป็นค่าว่างแทน ไม่ Error
-cl[0].info(f"{i+1}. {item['product']} | {item['qty']} {item.get('unit', '')} x {item['price']:,.2f} = {item['amount']:,.2f}")
+        # บรรทัดด้านล่างนี้ต้องย่อหน้าให้ตรงกับ if ด้านบน
+        cl[0].info(f"{i+1}. {item['product']} | {item['qty']} {item.get('unit', '')} x {item['price']:,.2f} = {item['amount']:,.2f}")
         if cl[1].button("🗑️ ลบ", key=f"del_{i}"):
             st.session_state.invoice_items.pop(i)
             st.rerun()
@@ -252,10 +252,11 @@ if st.button("✅ บันทึกข้อมูลและรับ PDF", t
                     ws_item.append_row([new_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
 
                 # สร้าง PDF
-                pdf_file = create_pdf({
+                pdf_data = {
                     "invoice_no": new_no, "date": date_now, "customer": customer, "address": address,
                     "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total
-                }, st.session_state.invoice_items)
+                }
+                pdf_file = create_pdf(pdf_data, st.session_state.invoice_items)
 
                 st.success(f"บันทึกสำเร็จ: {new_no}")
                 st.download_button("📥 คลิกเพื่อดาวน์โหลด PDF", pdf_file, f"{new_no}.pdf", "application/pdf")
