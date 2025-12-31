@@ -213,7 +213,8 @@ if st.session_state.invoice_items:
     st.write("---")
     for i, item in enumerate(st.session_state.invoice_items):
         cl = st.columns([4, 1])
-        cl[0].info(f"{i+1}. {item['product']} | {item['qty']} {item['unit']} x {item['price']:,.2f} = {item['amount']:,.2f}")
+       # ใช้ .get('unit', '') เพื่อว่าถ้าหาฟิลด์ unit ไม่เจอ จะให้แสดงเป็นค่าว่างแทน ไม่ Error
+cl[0].info(f"{i+1}. {item['product']} | {item['qty']} {item.get('unit', '')} x {item['price']:,.2f} = {item['amount']:,.2f}")
         if cl[1].button("🗑️ ลบ", key=f"del_{i}"):
             st.session_state.invoice_items.pop(i)
             st.rerun()
