@@ -153,8 +153,9 @@ with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลั
 
 st.divider()
 
+# --- ENTRY FORM ---
 st.subheader("📝 รายละเอียดใบขนส่ง (28 Columns)")
-tab1, tab2, tab3 = st.tabs(["👤 ข้อมูลลูกค้า", "🚛 ข้อมูลการขนส่ง", "📦 ข้อมูลตรวจสอบ"])
+tab1, tab2, tab3 = st.tabs(["👤 ข้อมูลลูกค้า", "🚛 การขนส่ง", "📦 การตรวจสอบ"])
 
 with tab1:
     col1, col2 = st.columns(2)
@@ -194,7 +195,7 @@ with tab3:
         checker_name = st.text_input("27. ชื่อผู้ตรวจสอบ", value=st.session_state.form_checker_name)
     remark = st.text_area("28. หมายเหตุ", value=st.session_state.form_remark)
 
-st.subheader("📦 รายการสินค้า (Invoice Items)")
+st.subheader("📦 รายการสินค้า")
 ci1, ci1_5, ci2, ci3 = st.columns([3, 1, 1, 1])
 p_name = ci1.text_input("ชื่อสินค้า/บริการ", key="p_input")
 p_unit = ci1_5.text_input("หน่วยนับ", placeholder="เช่น กล่อง", key="u_input")
@@ -225,34 +226,44 @@ if st.session_state.invoice_items:
     grand_total = subtotal + vat + shipping - discount
     st.write(f"### 9. ยอดรวมสุทธิ: {grand_total:,.2f} บาท")
 
-# ================= 5. SAVE =================
+# ================= 5. SAVE & AUTO RESET =================
 if st.button("✅ บันทึกข้อมูลและรับ PDF", type="primary"):
-    with st.spinner("กำลังบันทึก..."):
-        new_no = next_inv_no(inv_df)
-        date_now = datetime.now().strftime("%d/%m/%Y")
-        
-        # 28 คอลัมน์สำหรับแผ่นงาน Invoices
-        final_row = [
-            new_no, date_now, customer, address, subtotal, vat, shipping, discount, grand_total,
-            doc_status, car_id, driver_name, pay_status, date_out, time_out, date_in, time_in,
-            ref_tax_id, ref_receipt_id, seal_no, pay_term, ship_method, driver_license,
-            receiver_name, issuer_name, sender_name, checker_name, remark
-        ]
+    if not customer:
+        st.warning("กรุณากรอกชื่อลูกค้า")
+    else:
+        with st.spinner("กำลังบันทึกและสร้าง PDF..."):
+            new_no = next_inv_no(inv_df)
+            date_now = datetime.now().strftime("%d/%m/%Y")
+            
+            # 28 คอลัมน์สำหรับ Invoices
+            final_row = [
+                new_no, date_now, customer, address, subtotal, vat, shipping, discount, grand_total,
+                doc_status, car_id, driver_name, pay_status, date_out, time_out, date_in, time_in,
+                ref_tax_id, ref_receipt_id, seal_no, pay_term, ship_method, driver_license,
+                receiver_name, issuer_name, sender_name, checker_name, remark
+            ]
 
-        try:
-            ws_inv.append_row(final_row)
-            # บันทึก InvoiceItems (รวม Unit)
-            for it in st.session_state.invoice_items:
-                ws_item.append_row([new_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
+            try:
+                # บันทึกลง Google Sheets
+                ws_inv.append_row(final_row)
+                for it in st.session_state.invoice_items:
+                    # บันทึกลง InvoiceItems (เพิ่ม Unit)
+                    ws_item.append_row([new_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
 
-            pdf_file = create_pdf({
-                "invoice_no": new_no, "date": date_now, "customer": customer, "address": address,
-                "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total
-            }, st.session_state.invoice_items)
+                # สร้าง PDF
+                pdf_file = create_pdf({
+                    "invoice_no": new_no, "date": date_now, "customer": customer, "address": address,
+                    "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total
+                }, st.session_state.invoice_items)
 
-            st.success(f"บันทึกสำเร็จ: {new_no}")
-            st.download_button("📥 ดาวน์โหลด PDF", pdf_file, f"{new_no}.pdf", "application/pdf")
-            st.cache_data.clear()
-            reset_form()
-        except Exception as e:
-            st.error(f"Error: {e}")
+                st.success(f"บันทึกสำเร็จ: {new_no}")
+                st.download_button("📥 คลิกเพื่อดาวน์โหลด PDF", pdf_file, f"{new_no}.pdf", "application/pdf")
+                
+                # --- AUTO RESET LOGIC ---
+                st.cache_data.clear()
+                reset_form()
+                st.info("ล้างข้อมูลในฟอร์มเรียบร้อยแล้ว พร้อมเริ่มรายการใหม่")
+                # ------------------------
+
+            except Exception as e:
+                st.error(f"Error: {e}")
