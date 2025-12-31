@@ -48,7 +48,6 @@ except:
     inv_df, item_df = pd.DataFrame(), pd.DataFrame()
 
 # ================= SESSION STATE (For Duplicate & Form) =================
-# สร้างรายการฟิลด์ที่ต้องการเพิ่มตามรูปภาพ
 transport_fields = [
     "Car ID", "Driver Name", "Payment Status", "Date Out", "Time Out",
     "Date In", "Time In", "Ref Tax ID", "Ref Receipt ID", "Seal No",
@@ -56,10 +55,18 @@ transport_fields = [
     "Issuer Name", "Sender Name", "Checker Name", "Remark"
 ]
 
-if "invoice_items" not in st.session_state: st.session_state.invoice_items = []
-for field in ["Customer", "Address"] + transport_fields:
-    key = f"form_{field.lower().replace(' ', '_')}"
-    if key not in st.session_state: st.session_state[key] = ""
+# ฟังก์ชันสำหรับล้างค่าฟอร์ม
+def reset_form():
+    st.session_state.invoice_items = []
+    st.session_state.form_customer = ""
+    st.session_state.form_address = ""
+    for field in transport_fields:
+        key = f"form_{field.lower().replace(' ', '_')}"
+        st.session_state[key] = ""
+
+# กำหนดค่าเริ่มต้นถ้ายังไม่มี
+if "invoice_items" not in st.session_state: 
+    reset_form()
 
 # ================= HELPER FUNCTIONS =================
 def next_inv_no(df):
@@ -71,7 +78,7 @@ def next_inv_no(df):
     except: return "INV-0001"
 
 # ================= UI =================
-st.title("🚚 ระบบจัดการใบแจ้งหนี้ขนส่ง (Full Version)")
+st.title("🚚 ระบบจัดการใบแจ้งหนี้ขนส่ง (Auto-Reset Version)")
 
 # --- ส่วนดึงข้อมูลเก่า (Duplicate) ---
 with st.expander("🔍 ค้นหาและทำซ้ำข้อมูลเก่า"):
@@ -81,20 +88,21 @@ with st.expander("🔍 ค้นหาและทำซ้ำข้อมูล
         if selected and st.button("🔄 ดึงข้อมูลเดิมมาใช้"):
             sel_no = selected.split(" | ")[0]
             old_inv = inv_df[inv_df["invoice_no"] == sel_no].iloc[0]
-            # ดึงข้อมูลทุกฟิลด์กลับเข้า Session
             st.session_state.form_customer = old_inv.get("customer", "")
             st.session_state.form_address = old_inv.get("address", "")
             for field in transport_fields:
                 key = f"form_{field.lower().replace(' ', '_')}"
-                st.session_state[key] = old_inv.get(field.lower().replace(' ', '_'), "")
-            # ดึงรายการสินค้า
+                # แปลงชื่อคอลัมน์ใน Sheet ให้ตรงกับ Key (ใช้ตัวพิมพ์เล็กและ underscore)
+                sheet_col = field.lower().replace(' ', '_')
+                st.session_state[key] = old_inv.get(sheet_col, "")
+            
             old_items = item_df[item_df["invoice_no"] == sel_no]
             st.session_state.invoice_items = old_items.to_dict('records')
             st.rerun()
 
 st.divider()
 
-# --- ฟอร์มกรอกข้อมูลส่วนหัว (เพิ่มคอลัมน์ใหม่) ---
+# --- ฟอร์มกรอกข้อมูลส่วนหัว ---
 st.subheader("📝 ข้อมูลทั่วไปและข้อมูลการขนส่ง")
 c1, c2, c3 = st.columns(3)
 with c1:
@@ -103,7 +111,8 @@ with c1:
     car_id = st.text_input("Car ID (ทะเบียนรถ)", value=st.session_state.form_car_id)
     driver_name = st.text_input("Driver Name (คนขับ)", value=st.session_state.form_driver_name)
 with c2:
-    pay_status = st.selectbox("Payment Status", ["ค้างชำระ", "ชำระแล้ว"], index=0)
+    pay_status = st.selectbox("Payment Status", ["ค้างชำระ", "ชำระแล้ว"], 
+                              index=0 if st.session_state.form_payment_status != "ชำระแล้ว" else 1)
     date_out = st.text_input("Date Out", value=st.session_state.form_date_out)
     time_out = st.text_input("Time Out", value=st.session_state.form_time_out)
     seal_no = st.text_input("Seal No", value=st.session_state.form_seal_no)
@@ -113,12 +122,12 @@ with c3:
     ship_method = st.text_input("Ship Method", value=st.session_state.form_ship_method)
     remark = st.text_area("Remark (หมายเหตุ)", value=st.session_state.form_remark)
 
-# --- จัดการรายการสินค้า (Add/Delete) ---
+# --- จัดการรายการสินค้า ---
 st.subheader("📦 รายการสินค้า")
 ci1, ci2, ci3 = st.columns([3,1,1])
-p_name = ci1.text_input("ชื่อสินค้า")
-p_qty = ci2.number_input("จำนวน", min_value=1)
-p_price = ci3.number_input("ราคา/หน่วย", min_value=0.0)
+p_name = ci1.text_input("ชื่อสินค้า", key="p_name_input")
+p_qty = ci2.number_input("จำนวน", min_value=1, key="p_qty_input")
+p_price = ci3.number_input("ราคา/หน่วย", min_value=0.0, key="p_price_input")
 
 if st.button("➕ เพิ่มรายการ"):
     if p_name:
@@ -136,18 +145,35 @@ if st.session_state.invoice_items:
     total = sum(i['amount'] for i in st.session_state.invoice_items) + shipping - discount
     st.write(f"### ยอดสุทธิ: {total:,.2f} บาท")
 
+    # --- ส่วนบันทึกและ Reset ---
     if st.button("✅ บันทึกและพิมพ์ PDF", type="primary"):
-        new_no = next_inv_no(inv_df)
-        date_now = datetime.now().strftime("%d/%m/%Y")
-        
-        # บันทึกลง Sheet (รวมคอลัมน์ใหม่)
-        data_to_save = [new_no, date_now, customer, address, total-shipping+discount, 0, shipping, discount, total]
-        # เพิ่มข้อมูลขนส่งต่อท้ายตามลำดับ
-        data_to_save += [car_id, driver_name, pay_status, date_out, time_out, "", "", "", "", seal_no, "", ship_method, "", "", "", "", "", remark]
-        
-        ws_inv.append_row(data_to_save)
-        for it in st.session_state.invoice_items:
-            ws_item.append_row([new_no, it['product'], it['qty'], it['price'], it['amount']])
-        
-        st.success(f"บันทึกสำเร็จ: {new_no}")
-        st.cache_data.clear()
+        with st.spinner("กำลังบันทึกข้อมูล..."):
+            new_no = next_inv_no(inv_df)
+            date_now = datetime.now().strftime("%d/%m/%Y")
+            
+            # 1. เตรียมข้อมูล Header (28 คอลัมน์)
+            # ลำดับ: No, Date, Customer, Address, Subtotal, VAT, Ship, Discount, GrandTotal, ...Transport Fields
+            header_data = [new_no, date_now, customer, address, total-shipping+discount, 0, shipping, discount, total]
+            header_data += [car_id, driver_name, pay_status, date_out, time_out, 
+                           st.session_state.form_date_in, st.session_state.form_time_in,
+                           st.session_state.form_ref_tax_id, st.session_state.form_ref_receipt_id,
+                           seal_no, st.session_state.form_pay_term, ship_method,
+                           st.session_state.form_driver_license, st.session_state.form_receiver_name,
+                           st.session_state.form_issuer_name, st.session_state.form_sender_name,
+                           st.session_state.form_checker_name, remark]
+            
+            # 2. บันทึกลง Google Sheets
+            ws_inv.append_row(header_data)
+            for it in st.session_state.invoice_items:
+                ws_item.append_row([new_no, it['product'], it['qty'], it['price'], it['amount']])
+            
+            st.success(f"บันทึกสำเร็จ: {new_no}")
+            
+            # 3. ล้าง Cache ข้อมูลเก่าเพื่อให้ดึงข้อมูลใหม่ได้ทันที
+            st.cache_data.clear()
+            
+            # 4. รีเซ็ตหน้าฟอร์มให้ว่างเปล่า
+            reset_form()
+            
+            # 5. รันหน้าจอใหม่เพื่อให้ฟอร์มว่างทันที
+            st.rerun()
