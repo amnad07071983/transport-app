@@ -50,11 +50,13 @@ except:
     inv_df, item_df = pd.DataFrame(), pd.DataFrame()
 
 # ================= 2. SESSION STATE & FORM RESET =================
+# เพิ่มฟิลด์บริษัท 5 ฟิลด์ใหม่ต่อท้าย (ฟิลด์ที่ 29-33)
 transport_fields = [
     "doc_status", "car_id", "driver_name", "payment_status", "date_out", "time_out",
     "date_in", "time_in", "ref_tax_id", "ref_receipt_id", "seal_no",
     "pay_term", "ship_method", "driver_license", "receiver_name",
-    "issuer_name", "sender_name", "checker_name", "remark"
+    "issuer_name", "sender_name", "checker_name", "remark",
+    "comp_name", "comp_address", "comp_tax_id", "comp_phone", "comp_doc_title"
 ]
 
 def reset_form():
@@ -86,40 +88,47 @@ def create_pdf(inv, items):
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
     
-    # Header
-    c.setFont("ThaiFontBold", 20)
-    c.drawString(2*cm, h-2*cm, "ใบกำกับขนส่งสินค้า (Transportation Invoice)")
+    # --- ส่วนที่เพิ่ม: ข้อมูลบริษัท (Header) ---
+    c.setFont("ThaiFontBold", 16)
+    c.drawString(2*cm, h-1.5*cm, inv.get('comp_name', ''))
+    c.setFont("ThaiFontBold", 10)
+    c.drawString(2*cm, h-2.1*cm, f"ที่อยู่: {inv.get('comp_address', '')}")
+    c.drawString(2*cm, h-2.6*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  โทร: {inv.get('comp_phone', '')}")
     
+    # ชื่อเอกสาร (จากฟิลด์ที่ 33)
+    c.setFont("ThaiFontBold", 20)
+    c.drawRightString(19*cm, h-1.5*cm, inv.get('comp_doc_title', 'ใบกำกับขนส่งสินค้า'))
+    
+    # ส่วนเดิม
     c.setFont("ThaiFontBold", 12)
-    c.drawRightString(19*cm, h-2*cm, f"เลขที่: {inv.get('invoice_no','')}")
-    c.drawRightString(19*cm, h-2.6*cm, f"วันที่: {inv.get('date','')}")
+    c.drawRightString(19*cm, h-2.2*cm, f"เลขที่: {inv.get('invoice_no','')}")
+    c.drawRightString(19*cm, h-2.8*cm, f"วันที่: {inv.get('date','')}")
 
     # ส่วนข้อมูลลูกค้าและอ้างอิง
     c.setFont("ThaiFontBold", 13)
-    c.drawString(2*cm, h-3.5*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
+    c.drawString(2*cm, h-4.2*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
     c.setFont("ThaiFontBold", 11)
-    c.drawString(2*cm, h-4.1*cm, f"ที่อยู่: {inv.get('address','')}")
-    c.drawString(2*cm, h-4.7*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
+    c.drawString(2*cm, h-4.8*cm, f"ที่อยู่: {inv.get('address','')}")
+    c.drawString(2*cm, h-5.4*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
 
     # ส่วนรายละเอียดการขนส่ง (Box)
-    c.rect(2*cm, h-8.5*cm, 17*cm, 3.3*cm)
+    c.rect(2*cm, h-9.2*cm, 17*cm, 3.3*cm)
     c.setFont("ThaiFontBold", 10)
-    # คอลัมน์ 1
-    c.drawString(2.5*cm, h-5.7*cm, f"ทะเบียนรถ: {inv.get('car_id','')}")
-    c.drawString(2.5*cm, h-6.3*cm, f"ชื่อคนขับ: {inv.get('driver_name','')}")
-    c.drawString(2.5*cm, h-6.9*cm, f"ใบขับขี่: {inv.get('driver_license','')}")
-    c.drawString(2.5*cm, h-7.5*cm, f"เงื่อนไขชำระ: {inv.get('pay_term','')}")
-    # คอลัมน์ 2
-    c.drawString(8.5*cm, h-5.7*cm, f"ออก: {inv.get('date_out','')} {inv.get('time_out','')}")
-    c.drawString(8.5*cm, h-6.3*cm, f"เข้า: {inv.get('date_in','')} {inv.get('time_in','')}")
-    c.drawString(8.5*cm, h-6.9*cm, f"วิธีขนส่ง: {inv.get('ship_method','')}")
-    c.drawString(8.5*cm, h-7.5*cm, f"Seal No: {inv.get('seal_no','')}")
-    # คอลัมน์ 3
-    c.drawString(14.5*cm, h-5.7*cm, f"สถานะบิล: {inv.get('doc_status','')}")
-    c.drawString(14.5*cm, h-6.3*cm, f"การชำระ: {inv.get('pay_status','')}")
+    c.drawString(2.5*cm, h-6.4*cm, f"ทะเบียนรถ: {inv.get('car_id','')}")
+    c.drawString(2.5*cm, h-7.0*cm, f"ชื่อคนขับ: {inv.get('driver_name','')}")
+    c.drawString(2.5*cm, h-7.6*cm, f"ใบขับขี่: {inv.get('driver_license','')}")
+    c.drawString(2.5*cm, h-8.2*cm, f"เงื่อนไขชำระ: {inv.get('pay_term','')}")
+    
+    c.drawString(8.5*cm, h-6.4*cm, f"ออก: {inv.get('date_out','')} {inv.get('time_out','')}")
+    c.drawString(8.5*cm, h-7.0*cm, f"เข้า: {inv.get('date_in','')} {inv.get('time_in','')}")
+    c.drawString(8.5*cm, h-7.6*cm, f"วิธีขนส่ง: {inv.get('ship_method','')}")
+    c.drawString(8.5*cm, h-8.2*cm, f"Seal No: {inv.get('seal_no','')}")
+    
+    c.drawString(14.5*cm, h-6.4*cm, f"สถานะบิล: {inv.get('doc_status','')}")
+    c.drawString(14.5*cm, h-7.0*cm, f"การชำระ: {inv.get('pay_status','')}")
 
     # ตารางรายการสินค้า
-    y = h - 9.5*cm
+    y = h - 10.2*cm
     c.setFont("ThaiFontBold", 12)
     c.drawString(2.2*cm, y, "รายการสินค้า")
     c.drawRightString(11*cm, y, "หน่วย")
@@ -164,7 +173,7 @@ def create_pdf(inv, items):
     return buf
 
 # ================= 4. UI - MAIN =================
-st.title("🚚 ระบบจัดการใบแจ้งหนี้ขนส่ง (Full 28 Columns)")
+st.title("🚚 ระบบจัดการใบแจ้งหนี้ขนส่ง (Full 33 Columns)")
 
 with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลัง"):
     if not inv_df.empty:
@@ -192,8 +201,8 @@ with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลั
 st.divider()
 
 # --- ENTRY FORM ---
-st.subheader("📝 รายละเอียดใบขนส่ง (28 Columns)")
-tab1, tab2, tab3 = st.tabs(["👤 ข้อมูลลูกค้า", "🚛 การขนส่ง", "📦 การตรวจสอบ"])
+st.subheader("📝 รายละเอียดใบขนส่ง")
+tab1, tab2, tab3, tab4 = st.tabs(["👤 ข้อมูลลูกค้า", "🚛 การขนส่ง", "📦 การตรวจสอบ", "🏢 ข้อมูลบริษัท"])
 
 with tab1:
     col1, col2 = st.columns(2)
@@ -233,6 +242,17 @@ with tab3:
         checker_name = st.text_input("27. ชื่อผู้ตรวจสอบ", value=st.session_state.form_checker_name)
     remark = st.text_area("28. หมายเหตุ", value=st.session_state.form_remark)
 
+with tab4:
+    st.info("💡 ข้อมูลส่วนนี้จะปรากฏในส่วนหัวของเอกสาร PDF")
+    c_col1, c_col2 = st.columns(2)
+    with c_col1:
+        comp_name = st.text_input("29. บริษัท-ชื่อ", value=st.session_state.form_comp_name)
+        comp_tax_id = st.text_input("31. บริษัท-เลขประจำตัวผู้เสียภาษี", value=st.session_state.form_comp_tax_id)
+        comp_doc_title = st.text_input("33. บริษัท-ชื่อเอกสาร", value=st.session_state.form_comp_doc_title, placeholder="เช่น ใบส่งของ / ใบกำกับภาษี")
+    with c_col2:
+        comp_phone = st.text_input("32. บริษัท-เบอร์โทร", value=st.session_state.form_comp_phone)
+        comp_address = st.text_area("30. บริษัท-ที่อยู่", value=st.session_state.form_comp_address)
+
 st.subheader("📦 รายการสินค้า")
 ci1, ci1_5, ci2, ci3 = st.columns([3, 1, 1, 1])
 p_name = ci1.text_input("ชื่อสินค้า/บริการ", key="p_input")
@@ -266,19 +286,20 @@ if st.session_state.invoice_items:
 
 # ================= 5. SAVE & AUTO RESET =================
 if st.button("✅ บันทึกข้อมูลและรับ PDF", type="primary"):
-    if not customer:
-        st.warning("กรุณากรอกชื่อลูกค้า")
+    if not customer or not comp_name:
+        st.warning("กรุณากรอกชื่อลูกค้าและชื่อบริษัท")
     else:
         with st.spinner("กำลังบันทึกและสร้าง PDF..."):
             new_no = next_inv_no(inv_df)
             date_now = datetime.now().strftime("%d/%m/%Y")
             
-            # 28 คอลัมน์สำหรับ Invoices
+            # บันทึก 33 คอลัมน์ (28 เดิม + 5 ใหม่)
             final_row = [
                 new_no, date_now, customer, address, subtotal, vat, shipping, discount, grand_total,
                 doc_status, car_id, driver_name, pay_status, date_out, time_out, date_in, time_in,
                 ref_tax_id, ref_receipt_id, seal_no, pay_term, ship_method, driver_license,
-                receiver_name, issuer_name, sender_name, checker_name, remark
+                receiver_name, issuer_name, sender_name, checker_name, remark,
+                comp_name, comp_address, comp_tax_id, comp_phone, comp_doc_title
             ]
 
             try:
@@ -287,7 +308,7 @@ if st.button("✅ บันทึกข้อมูลและรับ PDF", t
                 for it in st.session_state.invoice_items:
                     ws_item.append_row([new_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
 
-                # --- ส่วนที่แก้ไข: ส่งข้อมูลครบ 28 ฟิลด์ไปยัง PDF ---
+                # ส่งข้อมูลครบ 33 ฟิลด์ไปยัง PDF
                 pdf_data = {
                     "invoice_no": new_no, "date": date_now, "customer": customer, "address": address,
                     "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total,
@@ -296,9 +317,10 @@ if st.button("✅ บันทึกข้อมูลและรับ PDF", t
                     "time_out": time_out, "date_in": date_in, "time_in": time_in, "seal_no": seal_no,
                     "ship_method": ship_method, "pay_term": pay_term, "doc_status": doc_status,
                     "pay_status": pay_status, "receiver_name": receiver_name, "sender_name": sender_name,
-                    "checker_name": checker_name, "issuer_name": issuer_name, "remark": remark
+                    "checker_name": checker_name, "issuer_name": issuer_name, "remark": remark,
+                    "comp_name": comp_name, "comp_address": comp_address, "comp_tax_id": comp_tax_id,
+                    "comp_phone": comp_phone, "comp_doc_title": comp_doc_title
                 }
-                # -----------------------------------------------
                 
                 pdf_file = create_pdf(pdf_data, st.session_state.invoice_items)
 
