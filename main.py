@@ -73,16 +73,17 @@ def reset_form():
     for f in transport_fields:
         st.session_state[f"form_{f}"] = ""
 
-if "invoice_items" not in st.session_state:
+if "edit_mode" not in st.session_state:
     reset_form()
 
 # ================= 4. HELPERS =================
 def next_inv_no(df):
     if df.empty:
         return "INV-0001"
+    df = df.sort_values("invoice_no")
     last = df["invoice_no"].iloc[-1]
     try:
-        return f"INV-{int(last.split('-')[1])+1:04d}"
+        return f"INV-{int(last.split('-')[1]) + 1:04d}"
     except:
         return "INV-0001"
 
@@ -104,7 +105,10 @@ def create_pdf(inv, items):
 
     for it in items:
         y -= 0.8*cm
-        c.drawString(2.2*cm, y, f"{it['product']} ({it['qty']} x {it['price']:,.2f})")
+        c.drawString(
+            2.2*cm, y,
+            f"{it['product']} ({it['qty']} x {it['price']:,.2f})"
+        )
         c.drawRightString(19*cm, y, f"{it['amount']:,.2f}")
 
     y -= 1.2*cm
@@ -126,50 +130,53 @@ with st.expander("🔍 ค้นหา / แก้ไข"):
             for _, r in inv_df.iterrows()
         ]
         sel = st.selectbox("เลือกรายการ", [""] + options[::-1])
-        if sel:
+        if sel and st.button("📝 แก้ไข"):
             sel_no = sel.split(" | ")[0]
+            old = inv_df[inv_df["invoice_no"] == sel_no].iloc[0]
 
-            if st.button("📝 แก้ไข"):
-                old = inv_df[inv_df["invoice_no"] == sel_no].iloc[0]
-                st.session_state.edit_mode = True
-                st.session_state.current_inv_no = sel_no
-                st.session_state.form_customer = old["customer"]
-                st.session_state.form_address = old["address"]
-                st.session_state.form_doc_status = old["doc_status"]
-                st.session_state.form_shipping = float(old["shipping"])
-                st.session_state.form_discount = float(old["discount"])
+            st.session_state.edit_mode = True
+            st.session_state.current_inv_no = sel_no
+            st.session_state.form_customer = old["customer"]
+            st.session_state.form_address = old["address"]
+            st.session_state.form_doc_status = old["doc_status"]
+            st.session_state.form_shipping = float(old["shipping"])
+            st.session_state.form_discount = float(old["discount"])
 
-                for f in transport_fields:
-                    st.session_state[f"form_{f}"] = old.get(f, "")
+            for f in transport_fields:
+                st.session_state[f"form_{f}"] = old.get(f, "")
 
-                st.session_state.invoice_items = (
-                    item_df[item_df["invoice_no"] == sel_no]
-                    .to_dict("records")
-                )
-                st.rerun()
+            st.session_state.invoice_items = (
+                item_df[item_df["invoice_no"] == sel_no]
+                .to_dict("records")
+            )
+            st.rerun()
 
 # ================= 6. FORM =================
 customer = st.text_input("ลูกค้า", st.session_state.form_customer)
 address = st.text_area("ที่อยู่", st.session_state.form_address)
-doc_status = st.selectbox("สถานะ", ["ใช้งาน", "ยกเลิก"])
+
+doc_status = st.selectbox(
+    "สถานะ",
+    ["ใช้งาน", "ยกเลิก"],
+    index=0 if st.session_state.form_doc_status == "ใช้งาน" else 1
+)
 
 shipping = st.number_input("ค่าขนส่ง", value=st.session_state.form_shipping)
 discount = st.number_input("ส่วนลด", value=st.session_state.form_discount)
 
 st.subheader("📦 รายการสินค้า")
 p = st.text_input("สินค้า")
-q = st.number_input("จำนวน", min_value=1)
+q = st.number_input("จำนวน", min_value=1, step=1)
 pr = st.number_input("ราคา", min_value=0.0)
 
-if st.button("➕ เพิ่ม"):
-    if p:
-        st.session_state.invoice_items.append({
-            "product": p,
-            "qty": q,
-            "price": pr,
-            "amount": q * pr
-        })
-        st.rerun()
+if st.button("➕ เพิ่ม") and p:
+    st.session_state.invoice_items.append({
+        "product": p,
+        "qty": q,
+        "price": pr,
+        "amount": q * pr
+    })
+    st.rerun()
 
 subtotal = sum(i["amount"] for i in st.session_state.invoice_items)
 grand_total = subtotal + shipping - discount
@@ -182,11 +189,13 @@ if st.button("✅ บันทึก"):
         if st.session_state.edit_mode
         else next_inv_no(inv_df)
     )
+
     today = datetime.now().strftime("%d/%m/%Y")
 
     header = [
         target, today, customer, address,
-        subtotal, 0, shipping, discount,
+        subtotal, 0,  # 0 = VAT (สำรอง)
+        shipping, discount,
         grand_total, doc_status
     ]
 
@@ -194,8 +203,9 @@ if st.button("✅ บันทึก"):
         header.append(st.session_state.get(f"form_{f}", ""))
 
     if st.session_state.edit_mode:
-        cell = ws_inv.find(target)
-        ws_inv.update(f"A{cell.row}", [header])
+        cells = ws_inv.findall(target)
+        row = [c for c in cells if c.col == 1][0].row
+        ws_inv.update(f"A{row}", [header])
 
         rows = ws_item.get_all_values()
         del_rows = [i+1 for i, r in enumerate(rows) if r and r[0] == target]
