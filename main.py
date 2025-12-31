@@ -15,7 +15,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 st.set_page_config(page_title="Transportation Invoice", layout="wide")
 
 # แนะนำ: ให้หาไฟล์ฟอนต์ภาษาไทย (เช่น THSarabunNew.ttf) มาใส่ในโฟลเดอร์เดียวกับโปรเจกต์
-# pdfmetrics.registerFont(TTFont('ThaiFont', 'THSarabunNew.ttf')) 
+# pdfmetrics.registerFont(TTFont('ThaiFont', 'THSARABUN BOLD.ttf')) 
 
 SHEET_ID = "1ZdTeTyDkrvR3ZbIisCJdzKRlU8jMvFvnSvtEmQR2Tzs"
 INV_SHEET = "Invoices"
