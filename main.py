@@ -50,7 +50,6 @@ except:
     inv_df, item_df = pd.DataFrame(), pd.DataFrame()
 
 # ================= 2. SESSION STATE & FORM RESET =================
-# เพิ่มฟิลด์บริษัท 5 ฟิลด์ใหม่ต่อท้าย (ฟิลด์ที่ 29-33)
 transport_fields = [
     "doc_status", "car_id", "driver_name", "payment_status", "date_out", "time_out",
     "date_in", "time_in", "ref_tax_id", "ref_receipt_id", "seal_no",
@@ -88,23 +87,23 @@ def create_pdf(inv, items):
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
     
-    # --- ส่วนที่เพิ่ม: ข้อมูลบริษัท (Header) ---
+    # --- [ส่วนที่แก้ไข] เพิ่มข้อมูลบริษัทที่หัว PDF ---
     c.setFont("ThaiFontBold", 16)
-    c.drawString(2*cm, h-1.5*cm, inv.get('comp_name', ''))
+    c.drawString(2*cm, h-1.5*cm, inv.get('comp_name', '')) # ชื่อบริษัท
     c.setFont("ThaiFontBold", 10)
-    c.drawString(2*cm, h-2.1*cm, f"ที่อยู่: {inv.get('comp_address', '')}")
+    c.drawString(2*cm, h-2.1*cm, f"ที่อยู่: {inv.get('comp_address', '')}") # ที่อยู่บริษัท
     c.drawString(2*cm, h-2.6*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  โทร: {inv.get('comp_phone', '')}")
     
-    # ชื่อเอกสาร (จากฟิลด์ที่ 33)
+    # ชื่อเอกสาร
     c.setFont("ThaiFontBold", 20)
     c.drawRightString(19*cm, h-1.5*cm, inv.get('comp_doc_title', 'ใบกำกับขนส่งสินค้า'))
     
-    # ส่วนเดิม
+    # ข้อมูลเลขที่/วันที่ (ขยับพิกัดลงเล็กน้อยเพื่อให้พ้นส่วนหัว)
     c.setFont("ThaiFontBold", 12)
     c.drawRightString(19*cm, h-2.2*cm, f"เลขที่: {inv.get('invoice_no','')}")
     c.drawRightString(19*cm, h-2.8*cm, f"วันที่: {inv.get('date','')}")
 
-    # ส่วนข้อมูลลูกค้าและอ้างอิง
+    # ส่วนข้อมูลลูกค้า (ขยับลงมาที่ h-4.2*cm)
     c.setFont("ThaiFontBold", 13)
     c.drawString(2*cm, h-4.2*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
     c.setFont("ThaiFontBold", 11)
@@ -118,12 +117,10 @@ def create_pdf(inv, items):
     c.drawString(2.5*cm, h-7.0*cm, f"ชื่อคนขับ: {inv.get('driver_name','')}")
     c.drawString(2.5*cm, h-7.6*cm, f"ใบขับขี่: {inv.get('driver_license','')}")
     c.drawString(2.5*cm, h-8.2*cm, f"เงื่อนไขชำระ: {inv.get('pay_term','')}")
-    
     c.drawString(8.5*cm, h-6.4*cm, f"ออก: {inv.get('date_out','')} {inv.get('time_out','')}")
     c.drawString(8.5*cm, h-7.0*cm, f"เข้า: {inv.get('date_in','')} {inv.get('time_in','')}")
     c.drawString(8.5*cm, h-7.6*cm, f"วิธีขนส่ง: {inv.get('ship_method','')}")
     c.drawString(8.5*cm, h-8.2*cm, f"Seal No: {inv.get('seal_no','')}")
-    
     c.drawString(14.5*cm, h-6.4*cm, f"สถานะบิล: {inv.get('doc_status','')}")
     c.drawString(14.5*cm, h-7.0*cm, f"การชำระ: {inv.get('pay_status','')}")
 
@@ -160,7 +157,6 @@ def create_pdf(inv, items):
     # หมายเหตุ และ ลายเซ็น
     c.setFont("ThaiFontBold", 10)
     c.drawString(2*cm, y_sum-0.5*cm, f"หมายเหตุ: {inv.get('remark','-')}")
-    
     y_sign = 3.5*cm
     c.drawString(2*cm, y_sign, f"ผู้รับสินค้า: {inv.get('receiver_name','________________')}")
     c.drawString(7*cm, y_sign, f"ผู้ส่งสินค้า: {inv.get('sender_name','________________')}")
