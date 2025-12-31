@@ -85,41 +85,79 @@ def create_pdf(inv, items):
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
+    
+    # Header
     c.setFont("ThaiFontBold", 20)
     c.drawString(2*cm, h-2*cm, "ใบกำกับขนส่งสินค้า (Transportation Invoice)")
-    c.setFont("ThaiFontBold", 14)
-    c.drawString(2*cm, h-3.2*cm, f"เลขที่: {inv.get('invoice_no','')}")
-    c.drawString(2*cm, h-4*cm, f"วันที่: {inv.get('date','')}")
-    c.drawString(2*cm, h-5.2*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
-    c.drawString(2*cm, h-6*cm, f"ที่อยู่: {inv.get('address','')}")
-
-    y = h - 8*cm
-    c.line(2*cm, y, 19*cm, y)
+    
     c.setFont("ThaiFontBold", 12)
-    c.drawString(2.2*cm, y-0.6*cm, "รายการสินค้า")
-    c.drawRightString(11*cm, y-0.6*cm, "หน่วย")
-    c.drawRightString(13.5*cm, y-0.6*cm, "จำนวน")
-    c.drawRightString(16*cm, y-0.6*cm, "ราคา/หน่วย")
-    c.drawRightString(19*cm, y-0.6*cm, "รวมเงิน")
-    c.line(2*cm, y-0.8*cm, 19*cm, y-0.8*cm)
+    c.drawRightString(19*cm, h-2*cm, f"เลขที่: {inv.get('invoice_no','')}")
+    c.drawRightString(19*cm, h-2.6*cm, f"วันที่: {inv.get('date','')}")
 
-    y -= 1.5*cm
+    # ส่วนข้อมูลลูกค้าและอ้างอิง
+    c.setFont("ThaiFontBold", 13)
+    c.drawString(2*cm, h-3.5*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
+    c.setFont("ThaiFontBold", 11)
+    c.drawString(2*cm, h-4.1*cm, f"ที่อยู่: {inv.get('address','')}")
+    c.drawString(2*cm, h-4.7*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
+
+    # ส่วนรายละเอียดการขนส่ง (Box)
+    c.rect(2*cm, h-8.5*cm, 17*cm, 3.3*cm)
+    c.setFont("ThaiFontBold", 10)
+    # คอลัมน์ 1
+    c.drawString(2.5*cm, h-5.7*cm, f"ทะเบียนรถ: {inv.get('car_id','')}")
+    c.drawString(2.5*cm, h-6.3*cm, f"ชื่อคนขับ: {inv.get('driver_name','')}")
+    c.drawString(2.5*cm, h-6.9*cm, f"ใบขับขี่: {inv.get('driver_license','')}")
+    c.drawString(2.5*cm, h-7.5*cm, f"เงื่อนไขชำระ: {inv.get('pay_term','')}")
+    # คอลัมน์ 2
+    c.drawString(8.5*cm, h-5.7*cm, f"ออก: {inv.get('date_out','')} {inv.get('time_out','')}")
+    c.drawString(8.5*cm, h-6.3*cm, f"เข้า: {inv.get('date_in','')} {inv.get('time_in','')}")
+    c.drawString(8.5*cm, h-6.9*cm, f"วิธีขนส่ง: {inv.get('ship_method','')}")
+    c.drawString(8.5*cm, h-7.5*cm, f"Seal No: {inv.get('seal_no','')}")
+    # คอลัมน์ 3
+    c.drawString(14.5*cm, h-5.7*cm, f"สถานะบิล: {inv.get('doc_status','')}")
+    c.drawString(14.5*cm, h-6.3*cm, f"การชำระ: {inv.get('pay_status','')}")
+
+    # ตารางรายการสินค้า
+    y = h - 9.5*cm
+    c.setFont("ThaiFontBold", 12)
+    c.drawString(2.2*cm, y, "รายการสินค้า")
+    c.drawRightString(11*cm, y, "หน่วย")
+    c.drawRightString(13.5*cm, y, "จำนวน")
+    c.drawRightString(16*cm, y, "ราคา/หน่วย")
+    c.drawRightString(19*cm, y, "รวมเงิน")
+    c.line(2*cm, y-0.2*cm, 19*cm, y-0.2*cm)
+
+    y -= 0.8*cm
+    c.setFont("ThaiFontBold", 11)
     for it in items:
         c.drawString(2.2*cm, y, str(it.get("product", "")))
         c.drawRightString(11*cm, y, str(it.get("unit", "")))
         c.drawRightString(13.5*cm, y, f"{it.get('qty', 0):,}")
         c.drawRightString(16*cm, y, f"{float(it.get('price', 0)):,.2f}")
         c.drawRightString(19*cm, y, f"{float(it.get('amount', 0)):,.2f}")
-        y -= 0.8*cm
+        y -= 0.7*cm
 
+    # สรุปยอดเงิน
     y_sum = y - 1*cm
     c.line(13*cm, y_sum+0.8*cm, 19*cm, y_sum+0.8*cm)
-    c.setFont("ThaiFontBold", 13)
+    c.setFont("ThaiFontBold", 11)
     c.drawString(13.5*cm, y_sum, f"ค่าขนส่ง: {float(inv.get('shipping', 0)):,.2f}")
-    c.drawString(13.5*cm, y_sum-0.8*cm, f"ภาษี (VAT): {float(inv.get('vat', 0)):,.2f}")
-    c.drawString(13.5*cm, y_sum-1.6*cm, f"ส่วนลด: {float(inv.get('discount', 0)):,.2f}")
-    c.setFont("ThaiFontBold", 16)
-    c.drawString(13.5*cm, y_sum-2.6*cm, f"ยอดสุทธิ: {float(inv.get('total', 0)):,.2f} บาท")
+    c.drawString(13.5*cm, y_sum-0.6*cm, f"ภาษี (VAT): {float(inv.get('vat', 0)):,.2f}")
+    c.drawString(13.5*cm, y_sum-1.2*cm, f"ส่วนลด: {float(inv.get('discount', 0)):,.2f}")
+    c.setFont("ThaiFontBold", 14)
+    c.drawString(13.5*cm, y_sum-2.2*cm, f"ยอดสุทธิ: {float(inv.get('total', 0)):,.2f} บาท")
+
+    # หมายเหตุ และ ลายเซ็น
+    c.setFont("ThaiFontBold", 10)
+    c.drawString(2*cm, y_sum-0.5*cm, f"หมายเหตุ: {inv.get('remark','-')}")
+    
+    y_sign = 3.5*cm
+    c.drawString(2*cm, y_sign, f"ผู้รับสินค้า: {inv.get('receiver_name','________________')}")
+    c.drawString(7*cm, y_sign, f"ผู้ส่งสินค้า: {inv.get('sender_name','________________')}")
+    c.drawString(11.5*cm, y_sign, f"ผู้ตรวจสอบ: {inv.get('checker_name','________________')}")
+    c.drawString(15.5*cm, y_sign, f"ผู้ออกบิล: {inv.get('issuer_name','________________')}")
+
     c.showPage()
     c.save()
     buf.seek(0)
@@ -213,7 +251,6 @@ if st.session_state.invoice_items:
     st.write("---")
     for i, item in enumerate(st.session_state.invoice_items):
         cl = st.columns([4, 1])
-        # บรรทัดด้านล่างนี้ต้องย่อหน้าให้ตรงกับ if ด้านบน
         cl[0].info(f"{i+1}. {item['product']} | {item['qty']} {item.get('unit', '')} x {item['price']:,.2f} = {item['amount']:,.2f}")
         if cl[1].button("🗑️ ลบ", key=f"del_{i}"):
             st.session_state.invoice_items.pop(i)
@@ -248,24 +285,29 @@ if st.button("✅ บันทึกข้อมูลและรับ PDF", t
                 # บันทึกลง Google Sheets
                 ws_inv.append_row(final_row)
                 for it in st.session_state.invoice_items:
-                    # บันทึกลง InvoiceItems (เพิ่ม Unit)
                     ws_item.append_row([new_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
 
-                # สร้าง PDF
+                # --- ส่วนที่แก้ไข: ส่งข้อมูลครบ 28 ฟิลด์ไปยัง PDF ---
                 pdf_data = {
                     "invoice_no": new_no, "date": date_now, "customer": customer, "address": address,
-                    "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total
+                    "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total,
+                    "ref_tax_id": ref_tax_id, "ref_receipt_id": ref_receipt_id, "car_id": car_id,
+                    "driver_name": driver_name, "driver_license": driver_license, "date_out": date_out,
+                    "time_out": time_out, "date_in": date_in, "time_in": time_in, "seal_no": seal_no,
+                    "ship_method": ship_method, "pay_term": pay_term, "doc_status": doc_status,
+                    "pay_status": pay_status, "receiver_name": receiver_name, "sender_name": sender_name,
+                    "checker_name": checker_name, "issuer_name": issuer_name, "remark": remark
                 }
+                # -----------------------------------------------
+                
                 pdf_file = create_pdf(pdf_data, st.session_state.invoice_items)
 
                 st.success(f"บันทึกสำเร็จ: {new_no}")
                 st.download_button("📥 คลิกเพื่อดาวน์โหลด PDF", pdf_file, f"{new_no}.pdf", "application/pdf")
                 
-                # --- AUTO RESET LOGIC ---
                 st.cache_data.clear()
                 reset_form()
                 st.info("ล้างข้อมูลในฟอร์มเรียบร้อยแล้ว พร้อมเริ่มรายการใหม่")
-                # ------------------------
 
             except Exception as e:
                 st.error(f"Error: {e}")
