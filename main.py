@@ -14,11 +14,11 @@ from reportlab.pdfbase.ttfonts import TTFont
 # ================= CONFIG =================
 st.set_page_config(page_title="Transportation Invoice", layout="wide")
 
-# --- จุดลงทะเบียนฟอนต์ภาษาไทย ---
+# --- ลงทะเบียนฟอนต์ภาษาไทย ---
 try:
     pdfmetrics.registerFont(TTFont('ThaiFontBold', 'THSARABUN BOLD.ttf'))
 except Exception as e:
-    st.error(f"⚠️ ไม่พบไฟล์ฟอนต์: 'THSARABUN BOLD.ttf' ในโฟลเดอร์โปรเจกต์ (Error: {e})")
+    st.error(f"⚠️ ไม่พบไฟล์ฟอนต์: 'THSARABUN BOLD.ttf' (Error: {e})")
 
 SHEET_ID = "1ZdTeTyDkrvR3ZbIisCJdzKRlU8jMvFvnSvtEmQR2Tzs"
 INV_SHEET = "Invoices"
@@ -110,23 +110,33 @@ def create_pdf(inv, items):
 # ================= UI =================
 st.title("🚚 ระบบใบกำกับขนส่งสินค้า")
 
-# --- ส่วนที่หายไป (เพิ่มกลับมาให้แล้ว) ---
+# --- ส่วนการค้นหาแบบละเอียด ---
 with st.expander("🔍 ค้นหา / ทำซ้ำ Invoice เก่า"):
-    selected = st.selectbox("เลือก Invoice", [""] + inv_df["invoice_no"].tolist() if not inv_df.empty else [""])
-    if selected:
-        inv_data = inv_df[inv_df["invoice_no"] == selected].iloc[0]
-        its_data = item_df[item_df["invoice_no"] == selected]
-        col_a, col_b = st.columns(2)
-        if col_a.button("📄 Duplicate ลงฟอร์ม"):
-            st.session_state.customer = inv_data["customer"]
-            st.session_state.address = inv_data["address"]
-            st.session_state.shipping = float(inv_data["shipping"])
-            st.session_state.discount = float(inv_data["discount"])
-            st.session_state.invoice_items = its_data.to_dict("records")
-            st.rerun()
-        if col_b.button("🖨 Export PDF ต้นฉบับ"):
-            pdf = create_pdf(inv_data.to_dict(), its_data.to_dict("records"))
-            st.download_button("⬇ Download PDF", pdf, f"{selected}.pdf")
+    if not inv_df.empty:
+        invoice_options = [
+            f"{row['invoice_no']} | {row['date']} | {row['customer']}" 
+            for _, row in inv_df.iterrows()
+        ]
+        selected_label = st.selectbox("เลือก Invoice (เลขที่ | วันที่ | ลูกค้า)", [""] + invoice_options[::-1])
+        
+        if selected_label:
+            selected_no = selected_label.split(" | ")[0]
+            inv_data = inv_df[inv_df["invoice_no"] == selected_no].iloc[0]
+            its_data = item_df[item_df["invoice_no"] == selected_no]
+            
+            col_a, col_b = st.columns(2)
+            if col_a.button("📄 Duplicate ลงฟอร์ม"):
+                st.session_state.customer = inv_data["customer"]
+                st.session_state.address = inv_data["address"]
+                st.session_state.shipping = float(inv_data["shipping"])
+                st.session_state.discount = float(inv_data["discount"])
+                st.session_state.invoice_items = its_data.to_dict("records")
+                st.rerun()
+            if col_b.button("🖨 Export PDF ต้นฉบับ"):
+                pdf = create_pdf(inv_data.to_dict(), its_data.to_dict("records"))
+                st.download_button("⬇ Download PDF", pdf, f"{selected_no}.pdf")
+    else:
+        st.info("ยังไม่มีข้อมูล Invoice")
 
 st.subheader("🧾 ข้อมูลลูกค้า")
 col1, col2 = st.columns(2)
