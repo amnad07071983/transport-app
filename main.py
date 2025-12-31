@@ -169,7 +169,7 @@ def create_pdf(inv, items):
     return buf
 
 # ================= 4. UI - MAIN =================
-st.title("🚚 ระบบจัดการใบแจ้งหนี้ขนส่ง (Full 33 Columns)")
+st.title("🚚 ใบกำกับขนส่งสินค้า")
 
 with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลัง"):
     if not inv_df.empty:
@@ -179,7 +179,7 @@ with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลั
             sel_no = selected.split(" | ")[0]
             old_inv = inv_df[inv_df["invoice_no"] == sel_no].iloc[0].to_dict()
             old_items = item_df[item_df["invoice_no"] == sel_no].to_dict('records')
-            if st.button("🔄 ดึงข้อมูลกลับมาแก้ไข"):
+            if st.button("🔄 สร้างซ้ำรายการ"):
                 st.session_state.form_customer = old_inv.get("customer", "")
                 st.session_state.form_address = old_inv.get("address", "")
                 st.session_state.form_shipping = float(old_inv.get("shipping", 0))
