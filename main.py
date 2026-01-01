@@ -69,7 +69,7 @@ def reset_form():
     st.session_state.form_vat = 0.0
     for field in transport_fields:
         st.session_state[f"form_{field}"] = ""
-    st.session_state.form_doc_status = "Active"
+    st.session_state.form_doc_status = "รอดำเนินการ"
     st.session_state.form_payment_status = "ค้างชำระ"
 
 if "invoice_items" not in st.session_state:
@@ -182,7 +182,7 @@ def create_pdf(inv, items):
     return buf
 
 # ================= 4. MAIN UI =================
-st.title("🚚 ใบกำกับขนส่งสินค้า")
+st.title("🚚 ใบขนส่งสินค้า")
 
 # ส่วนค้นหาและพิมพ์ PDF ย้อนหลัง
 with st.expander("🔍 ค้นหาและจัดการประวัติเอกสาร"):
@@ -196,7 +196,7 @@ with st.expander("🔍 ค้นหาและจัดการประวั
             
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("🔄 ดึงข้อมูลกลับมาแก้ไข"):
+                if st.button("🔄 สร้างรายการซ้ำ"):
                     st.session_state.form_customer = old_inv.get("customer", "")
                     st.session_state.form_address = old_inv.get("address", "")
                     st.session_state.form_shipping = float(old_inv.get("shipping", 0))
@@ -220,7 +220,7 @@ with tab1:
     col1, col2 = st.columns(2)
     customer = col1.text_input("ชื่อลูกค้า", value=st.session_state.form_customer)
     address = col1.text_area("ที่อยู่ลูกค้า", value=st.session_state.form_address)
-    doc_status = col2.selectbox("สถานะเอกสาร", ["Active", "Cancelled", "Completed"], index=0)
+    doc_status = col2.selectbox("สถานะเอกสาร", ["รอดำเนินการ", "ยกเลิก", "ใช้งาน"], index=0)
     pay_status = col2.selectbox("สถานะการชำระ", ["ค้างชำระ", "ชำระแล้ว"], index=0)
     pay_term = col2.text_input("เงื่อนไขการชำระเงิน", value=st.session_state.form_pay_term)
 
@@ -254,7 +254,7 @@ with tab4:
     comp_phone = c_col2.text_input("เบอร์โทรศัพท์บริษัท", value=st.session_state.form_comp_phone)
     comp_address = c_col2.text_area("ที่อยู่บริษัท", value=st.session_state.form_comp_address)
 
-st.subheader("📦 รายการสินค้า")
+st.subheader("📦 รายละเอียดสินค้า")
 ci1, ci1_5, ci2, ci3 = st.columns([3, 1, 1, 1])
 p_name = ci1.text_input("ชื่อสินค้า/บริการ")
 p_unit = ci1_5.text_input("หน่วย")
@@ -282,7 +282,7 @@ if st.session_state.invoice_items:
     grand_total = subtotal + vat + shipping - discount
     st.write(f"### ยอดรวมสุทธิ: {grand_total:,.2f} บาท")
 
-if st.button("💾 บันทึกและออกเอกสาร", type="primary"):
+if st.button("💾 บันทึกและสร้างเอกสาร", type="primary"):
     if not customer or not comp_name:
         st.error("กรุณากรอกชื่อลูกค้าและข้อมูลบริษัทให้ครบถ้วน")
     else:
