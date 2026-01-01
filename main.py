@@ -180,7 +180,6 @@ with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลั
             old_inv = inv_df[inv_df["invoice_no"] == sel_no].iloc[0].to_dict()
             old_items = item_df[item_df["invoice_no"] == sel_no].to_dict('records')
             if st.button("🔄 ดึงข้อมูลกลับมาแก้ไข"):
-    # ---------- Invoices : ทุกฟิลด์ ----------
     st.session_state.form_customer = old_inv.get("customer", "")
     st.session_state.form_address = old_inv.get("address", "")
     st.session_state.form_shipping = float(old_inv.get("shipping", 0) or 0)
@@ -190,10 +189,7 @@ with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลั
     for field in transport_fields:
         st.session_state[f"form_{field}"] = old_inv.get(field, "")
 
-    st.session_state.form_doc_status = old_inv.get("doc_status", "Active")
-    st.session_state.form_payment_status = old_inv.get("pay_status", "ค้างชำระ")
-
-    # ---------- InvoiceItems : ทุกแถว ----------
+    # normalize invoice items
     st.session_state.invoice_items = []
     for it in old_items:
         st.session_state.invoice_items.append({
@@ -205,6 +201,7 @@ with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลั
         })
 
     st.rerun()
+
 
             pdf_old = create_pdf(old_inv, old_items)
             st.download_button(f"📥 Download PDF {sel_no}", pdf_old, f"{sel_no}.pdf")
