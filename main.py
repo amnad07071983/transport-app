@@ -87,30 +87,27 @@ def create_pdf(inv, items):
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
     
-    # --- [ส่วนที่แก้ไข] เพิ่มข้อมูลบริษัทที่หัว PDF ---
+    # --- ส่วนหัว PDF ---
     c.setFont("ThaiFontBold", 16)
-    c.drawString(2*cm, h-1.5*cm, inv.get('comp_name', '')) # ชื่อบริษัท
+    c.drawString(2*cm, h-1.5*cm, inv.get('comp_name', '')) 
     c.setFont("ThaiFontBold", 10)
-    c.drawString(2*cm, h-2.1*cm, f"ที่อยู่: {inv.get('comp_address', '')}") # ที่อยู่บริษัท
+    c.drawString(2*cm, h-2.1*cm, f"ที่อยู่: {inv.get('comp_address', '')}") 
     c.drawString(2*cm, h-2.6*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  โทร: {inv.get('comp_phone', '')}")
     
-    # ชื่อเอกสาร
     c.setFont("ThaiFontBold", 20)
     c.drawRightString(19*cm, h-1.5*cm, inv.get('comp_doc_title', 'ใบกำกับขนส่งสินค้า'))
     
-    # ข้อมูลเลขที่/วันที่ (ขยับพิกัดลงเล็กน้อยเพื่อให้พ้นส่วนหัว)
     c.setFont("ThaiFontBold", 12)
     c.drawRightString(19*cm, h-2.2*cm, f"เลขที่: {inv.get('invoice_no','')}")
     c.drawRightString(19*cm, h-2.8*cm, f"วันที่: {inv.get('date','')}")
 
-    # ส่วนข้อมูลลูกค้า (ขยับลงมาที่ h-4.2*cm)
     c.setFont("ThaiFontBold", 13)
     c.drawString(2*cm, h-4.2*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
     c.setFont("ThaiFontBold", 11)
     c.drawString(2*cm, h-4.8*cm, f"ที่อยู่: {inv.get('address','')}")
     c.drawString(2*cm, h-5.4*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
 
-    # ส่วนรายละเอียดการขนส่ง (Box)
+    # Box รายละเอียดการขนส่ง
     c.rect(2*cm, h-9.2*cm, 17*cm, 3.3*cm)
     c.setFont("ThaiFontBold", 10)
     c.drawString(2.5*cm, h-6.4*cm, f"ทะเบียนรถ: {inv.get('car_id','')}")
@@ -124,7 +121,7 @@ def create_pdf(inv, items):
     c.drawString(14.5*cm, h-6.4*cm, f"สถานะบิล: {inv.get('doc_status','')}")
     c.drawString(14.5*cm, h-7.0*cm, f"การชำระ: {inv.get('pay_status','')}")
 
-    # ตารางรายการสินค้า
+    # ตารางรายการ
     y = h - 10.2*cm
     c.setFont("ThaiFontBold", 12)
     c.drawString(2.2*cm, y, "รายการสินค้า")
@@ -144,7 +141,6 @@ def create_pdf(inv, items):
         c.drawRightString(19*cm, y, f"{float(it.get('amount', 0)):,.2f}")
         y -= 0.7*cm
 
-    # สรุปยอดเงิน
     y_sum = y - 1*cm
     c.line(13*cm, y_sum+0.8*cm, 19*cm, y_sum+0.8*cm)
     c.setFont("ThaiFontBold", 11)
@@ -154,7 +150,6 @@ def create_pdf(inv, items):
     c.setFont("ThaiFontBold", 14)
     c.drawString(13.5*cm, y_sum-2.2*cm, f"ยอดสุทธิ: {float(inv.get('total', 0)):,.2f} บาท")
 
-    # หมายเหตุ และ ลายเซ็น
     c.setFont("ThaiFontBold", 10)
     c.drawString(2*cm, y_sum-0.5*cm, f"หมายเหตุ: {inv.get('remark','-')}")
     y_sign = 3.5*cm
@@ -179,16 +174,44 @@ with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลั
             sel_no = selected.split(" | ")[0]
             old_inv = inv_df[inv_df["invoice_no"] == sel_no].iloc[0].to_dict()
             old_items = item_df[item_df["invoice_no"] == sel_no].to_dict('records')
-            if st.button("🔄 ดึงข้อมูลกลับมาแก้ไข"):
-                st.session_state.form_customer = old_inv.get("customer", "")
-                st.session_state.form_address = old_inv.get("address", "")
-                st.session_state.form_shipping = float(old_inv.get("shipping", 0))
-                st.session_state.form_discount = float(old_inv.get("discount", 0))
-                st.session_state.form_vat = float(old_inv.get("vat", 0))
-                for field in transport_fields:
-                    st.session_state[f"form_{field}"] = str(old_inv.get(field, ""))
-                st.session_state.invoice_items = old_items
-                st.rerun()
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("🔄 ดึงข้อมูลกลับมาแก้ไข"):
+                    st.session_state.form_customer = old_inv.get("customer", "")
+                    st.session_state.form_address = old_inv.get("address", "")
+                    st.session_state.form_shipping = float(old_inv.get("shipping", 0))
+                    st.session_state.form_discount = float(old_inv.get("discount", 0))
+                    st.session_state.form_vat = float(old_inv.get("vat", 0))
+                    for field in transport_fields:
+                        st.session_state[f"form_{field}"] = str(old_inv.get(field, ""))
+                    st.session_state.invoice_items = old_items
+                    st.rerun()
+            
+            with c2:
+                if st.button("👯 สร้างรายการซ้ำ (Duplicate)"):
+                    # คัดลอกข้อมูลทุกฟิลด์เข้า session state เพื่อรอสร้างใบใหม่
+                    st.session_state.form_customer = old_inv.get("customer", "")
+                    st.session_state.form_address = old_inv.get("address", "")
+                    st.session_state.form_shipping = float(old_inv.get("shipping", 0))
+                    st.session_state.form_discount = float(old_inv.get("discount", 0))
+                    st.session_state.form_vat = float(old_inv.get("vat", 0))
+                    for field in transport_fields:
+                        st.session_state[f"form_{field}"] = str(old_inv.get(field, ""))
+                    
+                    # คัดลอกรายการสินค้า
+                    st.session_state.invoice_items = []
+                    for it in old_items:
+                        st.session_state.invoice_items.append({
+                            "product": it.get("product", ""), 
+                            "unit": it.get("unit", ""), 
+                            "qty": it.get("qty", 0), 
+                            "price": it.get("price", 0), 
+                            "amount": it.get("amount", 0)
+                        })
+                    st.success("คัดลอกข้อมูลเรียบร้อยแล้ว! กรุณาตรวจสอบและกด 'บันทึก' เพื่อสร้างใบใหม่")
+                    st.rerun()
+
             pdf_old = create_pdf(old_inv, old_items)
             st.download_button(f"📥 Download PDF {sel_no}", pdf_old, f"{sel_no}.pdf")
     else:
@@ -244,7 +267,7 @@ with tab4:
     with c_col1:
         comp_name = st.text_input("29. บริษัท-ชื่อ", value=st.session_state.form_comp_name)
         comp_tax_id = st.text_input("31. บริษัท-เลขประจำตัวผู้เสียภาษี", value=st.session_state.form_comp_tax_id)
-        comp_doc_title = st.text_input("33. บริษัท-ชื่อเอกสาร", value=st.session_state.form_comp_doc_title, placeholder="เช่น ใบส่งของ / ใบกำกับภาษี")
+        comp_doc_title = st.text_input("33. บริษัท-ชื่อเอกสาร", value=st.session_state.form_comp_doc_title)
     with c_col2:
         comp_phone = st.text_input("32. บริษัท-เบอร์โทร", value=st.session_state.form_comp_phone)
         comp_address = st.text_area("30. บริษัท-ที่อยู่", value=st.session_state.form_comp_address)
@@ -289,7 +312,6 @@ if st.button("✅ บันทึกข้อมูลและรับ PDF", t
             new_no = next_inv_no(inv_df)
             date_now = datetime.now().strftime("%d/%m/%Y")
             
-            # บันทึก 33 คอลัมน์ (28 เดิม + 5 ใหม่)
             final_row = [
                 new_no, date_now, customer, address, subtotal, vat, shipping, discount, grand_total,
                 doc_status, car_id, driver_name, pay_status, date_out, time_out, date_in, time_in,
@@ -299,12 +321,10 @@ if st.button("✅ บันทึกข้อมูลและรับ PDF", t
             ]
 
             try:
-                # บันทึกลง Google Sheets
                 ws_inv.append_row(final_row)
                 for it in st.session_state.invoice_items:
                     ws_item.append_row([new_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
 
-                # ส่งข้อมูลครบ 33 ฟิลด์ไปยัง PDF
                 pdf_data = {
                     "invoice_no": new_no, "date": date_now, "customer": customer, "address": address,
                     "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total,
@@ -319,13 +339,10 @@ if st.button("✅ บันทึกข้อมูลและรับ PDF", t
                 }
                 
                 pdf_file = create_pdf(pdf_data, st.session_state.invoice_items)
-
                 st.success(f"บันทึกสำเร็จ: {new_no}")
                 st.download_button("📥 คลิกเพื่อดาวน์โหลด PDF", pdf_file, f"{new_no}.pdf", "application/pdf")
-                
                 st.cache_data.clear()
                 reset_form()
                 st.info("ล้างข้อมูลในฟอร์มเรียบร้อยแล้ว พร้อมเริ่มรายการใหม่")
-
             except Exception as e:
                 st.error(f"Error: {e}")
