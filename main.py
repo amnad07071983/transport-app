@@ -189,7 +189,7 @@ with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลั
     for field in transport_fields:
         st.session_state[f"form_{field}"] = old_inv.get(field, "")
 
-    # normalize invoice items
+    # แปลง InvoiceItems ให้เป็นตัวเลข
     st.session_state.invoice_items = []
     for it in old_items:
         st.session_state.invoice_items.append({
@@ -201,7 +201,6 @@ with st.expander("🔍 ค้นหา/พิมพ์ PDF ย้อนหลั
         })
 
     st.rerun()
-
 
             pdf_old = create_pdf(old_inv, old_items)
             st.download_button(f"📥 Download PDF {sel_no}", pdf_old, f"{sel_no}.pdf")
