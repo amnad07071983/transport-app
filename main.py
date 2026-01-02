@@ -97,20 +97,21 @@ def create_pdf(inv, items):
     c.drawString(2*cm, h-2.1*cm, f"ที่อยู่: {inv.get('comp_address', '')}")
     c.drawString(2*cm, h-2.6*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  |  โทร: {inv.get('comp_phone', '')}")
     
-    # ไม่มีเส้นขอบขวาสุดตามคำสั่ง
+    # --- ส่วนหัวขวา (แยกเลขที่และวันที่คนละแถว ไม่มีเส้นขอบ และไม่มีสี) ---
     c.setFont("ThaiFontBold", 16)
-    c.drawRightString(19*cm, h-1.9*cm, str(inv.get('comp_doc_title', 'ใบกำกับขนส่ง')))
+    c.drawRightString(19*cm, h-1.5*cm, str(inv.get('comp_doc_title', 'ใบกำกับขนส่ง')))
     c.setFont("ThaiFontBold", 11)
-    c.drawRightString(19*cm, h-2.5*cm, f"เลขที่: {inv.get('invoice_no','')} | วันที่: {inv.get('date','')}")
+    c.drawRightString(19*cm, h-2.2*cm, f"เลขที่: {inv.get('invoice_no','')}")
+    c.drawRightString(19*cm, h-2.8*cm, f"วันที่: {inv.get('date','')}")
 
-    # --- ข้อมูลลูกค้า (เอาเส้นขอบ c.rect ออก) ---
+    # --- ข้อมูลลูกค้า ---
     c.setFont("ThaiFontBold", 12)
-    c.drawString(2*cm, h-3.5*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
+    c.drawString(2*cm, h-4.0*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
     c.setFont("ThaiFontBold", 10)
-    c.drawString(2*cm, h-4.1*cm, f"ที่อยู่: {inv.get('address','')}")
-    c.drawString(2*cm, h-4.8*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
+    c.drawString(2*cm, h-4.6*cm, f"ที่อยู่: {inv.get('address','')}")
+    c.drawString(2*cm, h-5.3*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
 
-    # --- ตารางรายละเอียดขนส่ง (เอาเส้นขอบ GRID ออก) ---
+    # --- ตารางรายละเอียดขนส่ง (ไม่มีเส้นขอบ) ---
     transport_data = [
         [f"ทะเบียนรถ: {inv.get('car_id','')}", f"ออก: {inv.get('date_out','')} {inv.get('time_out','')}", f"สถานะบิล: {inv.get('doc_status','')}"],
         [f"ชื่อคนขับ: {inv.get('driver_name','')}", f"เข้า: {inv.get('date_in','')} {inv.get('time_in','')}", f"การชำระ: {inv.get('pay_status','')}"],
@@ -121,12 +122,11 @@ def create_pdf(inv, items):
     t_trans.setStyle(TableStyle([
         ('FONT', (0,0), (-1,-1), 'ThaiFontBold', 9),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        # เอา GRID ออก
     ]))
-    t_trans.wrapOn(c, 2*cm, h-7.8*cm)
-    t_trans.drawOn(c, 2*cm, h-7.8*cm)
+    t_trans.wrapOn(c, 2*cm, h-8.0*cm)
+    t_trans.drawOn(c, 2*cm, h-8.0*cm)
 
-    # --- ตารางรายการสินค้า (เอาสีและเส้นขอบออก) ---
+    # --- ตารางรายการสินค้า (ไม่มีสี ไม่มีเส้นขอบ ยกเว้นเส้นใต้หัวตาราง) ---
     item_header = [["ลำดับ", "รายการสินค้า/บริการ", "หน่วย", "จำนวน", "ราคา/หน่วย", "รวมเงิน"]]
     item_rows = []
     for i, it in enumerate(items):
@@ -141,11 +141,10 @@ def create_pdf(inv, items):
         ('ALIGN', (0,0), (0,-1), 'CENTER'),
         ('ALIGN', (5,0), (5,-1), 'RIGHT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        # เอา BACKGROUND และ GRID ออกทั้งหมด
-        ('LINEBELOW', (0,0), (-1,0), 1, colors.black), # คงเส้นใต้หัวตารางไว้เพื่อให้ดูง่าย (เลือกเอาออกได้)
+        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.black), # คงเส้นใต้หัวตารางไว้หนึ่งเส้นเพื่อความชัดเจน
     ]))
     tw, th = t_items.wrapOn(c, 2*cm, h-15*cm)
-    t_y = h - 8.5*cm - th
+    t_y = h - 9.0*cm - th
     t_items.drawOn(c, 2*cm, t_y)
 
     # --- สรุปยอดเงิน ---
@@ -159,8 +158,7 @@ def create_pdf(inv, items):
     c.drawRightString(16*cm, curr_y-1.2*cm, "ส่วนลด:")
     c.drawRightString(19*cm, curr_y-1.2*cm, f"{float(inv.get('discount', 0)):,.2f}")
     c.setFont("ThaiFontBold", 14)
-    # คงเส้นคั่นยอดสุทธิไว้ 1 เส้น
-    c.line(13*cm, curr_y-1.5*cm, 19*cm, curr_y-1.5*cm)
+    c.line(13*cm, curr_y-1.5*cm, 19*cm, curr_y-1.5*cm) # เส้นคั่นก่อนยอดสุทธิ
     c.drawRightString(16*cm, curr_y-2.2*cm, "ยอดสุทธิ:")
     c.drawRightString(19*cm, curr_y-2.2*cm, f"{float(inv.get('total', 0)):,.2f} บาท")
 
