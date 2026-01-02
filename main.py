@@ -16,7 +16,7 @@ from reportlab.lib import colors
 # ================= 1. CONFIG & INITIALIZATION =================
 st.set_page_config(page_title="Logistics System Pro", layout="wide")
 
-# ลงทะเบียนฟอนต์ภาษาไทย
+# ลงทะเบียนฟอนต์ภาษาไทย (ต้องมีไฟล์ .ttf ในโฟลเดอร์เดียวกับโค้ด)
 try:
     pdfmetrics.registerFont(TTFont('ThaiFontBold', 'THSARABUN BOLD.ttf'))
 except:
@@ -97,12 +97,11 @@ def create_pdf(inv, items):
     c.drawString(2*cm, h-2.1*cm, f"ที่อยู่: {inv.get('comp_address', '')}")
     c.drawString(2*cm, h-2.6*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  |  โทร: {inv.get('comp_phone', '')}")
     
-    c.setLineWidth(1)
-    c.rect(13*cm, h-2.8*cm, 6*cm, 1.6*cm)
+    # (แก้ไข: นำ c.rect ตรงนี้ออก เพื่อไม่ให้มีเส้นขอบด้านบนขวา)
     c.setFont("ThaiFontBold", 16)
-    c.drawCentredString(16*cm, h-1.9*cm, str(inv.get('comp_doc_title', 'ใบกำกับขนส่ง')))
+    c.drawRightString(19*cm, h-1.9*cm, str(inv.get('comp_doc_title', 'ใบกำกับขนส่ง')))
     c.setFont("ThaiFontBold", 11)
-    c.drawCentredString(16*cm, h-2.5*cm, f"เลขที่: {inv.get('invoice_no','')} | วันที่: {inv.get('date','')}")
+    c.drawRightString(19*cm, h-2.5*cm, f"เลขที่: {inv.get('invoice_no','')} | วันที่: {inv.get('date','')}")
 
     # --- ข้อมูลลูกค้า ---
     c.setLineWidth(0.5)
@@ -138,20 +137,18 @@ def create_pdf(inv, items):
     
     t_items = Table(item_header + item_rows, colWidths=[1.2*cm, 7.8*cm, 2*cm, 2*cm, 2*cm, 2*cm])
     
-    # กำหนดสีน้ำตาลแดง (Dark Red)
+    # สีน้ำตาลแดง (Dark Red)
     brown_red = colors.Color(139/255, 0, 0)
     
     t_items.setStyle(TableStyle([
-        # ส่วนหัวตาราง: สีพื้นน้ำตาลแดง ตัวอักษรขาว ฟอนต์หนา
         ('FONT', (0,0), (-1,0), 'ThaiFontBold', 10),
         ('BACKGROUND', (0,0), (-1,0), brown_red),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        # เนื้อหาตาราง
         ('FONT', (0,1), (-1,-1), 'ThaiFontBold', 10),
         ('ALIGN', (0,0), (0,-1), 'CENTER'),
         ('ALIGN', (5,0), (5,-1), 'RIGHT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        # เส้นตาราง: ตีเส้นเฉพาะส่วนเนื้อหา (ไม่ตีเส้นขอบที่หัวตาราง)
+        # ตีเส้นขอบเฉพาะส่วนเนื้อหา ไม่รวมหัวตาราง
         ('GRID', (0,1), (-1,-1), 0.5, colors.black),
     ]))
     tw, th = t_items.wrapOn(c, 2*cm, h-15*cm)
@@ -192,7 +189,6 @@ def create_pdf(inv, items):
 # ================= 4. MAIN UI =================
 st.title("🚚 ใบขนส่งสินค้า")
 
-# ส่วนค้นหาและพิมพ์ PDF ย้อนหลัง
 with st.expander("🔍 ค้นหาและจัดการประวัติเอกสาร"):
     if not inv_df.empty:
         options = [
@@ -224,7 +220,6 @@ with st.expander("🔍 ค้นหาและจัดการประวั
 
 st.divider()
 
-# --- ส่วนของการกรอกข้อมูล ---
 st.subheader("📝 สร้างใบขนส่งใหม่")
 tab1, tab2, tab3, tab4 = st.tabs(["👤 ข้อมูลลูกค้า", "🚛 การขนส่ง", "📦 ตรวจสอบ", "🏢 ข้อมูลบริษัท"])
 
@@ -262,9 +257,9 @@ with tab4:
     c_col1, c_col2 = st.columns(2)
     comp_name = c_col1.text_input("ชื่อบริษัท (หัว PDF)", value=st.session_state.form_comp_name)
     comp_tax_id = c_col1.text_input("เลขประจำตัวผู้เสียภาษีบริษัท", value=st.session_state.form_comp_tax_id)
-    comp_doc_title = c_col1.text_input("ชื่อประเภทเอกสาร (เช่น ใบกำกับขนส่ง)", value=st.session_state.form_comp_doc_title)
+    comp_doc_title = c_col1.text_input("ชื่อประเภทเอกสาร", value=st.session_state.form_comp_doc_title)
     comp_phone = c_col2.text_input("เบอร์โทรศัพท์บริษัท", value=st.session_state.form_comp_phone)
-    comp_address = c_col2.text_area("ที่อยู่บริษัท", value=st.session_state.form_address)
+    comp_address = c_col2.text_area("ที่อยู่บริษัท", value=st.session_state.form_comp_address)
 
 st.subheader("📦 รายละเอียดสินค้า")
 ci1, ci1_5, ci2, ci3 = st.columns([3, 1, 1, 1])
@@ -301,7 +296,6 @@ if st.button("💾 บันทึกและสร้างเอกสาร"
         with st.spinner("กำลังประมวลผล..."):
             new_no = next_inv_no(inv_df)
             date_now = datetime.now().strftime("%d/%m/%Y")
-            # บันทึกลง Google Sheets
             ws_inv.append_row([new_no, date_now, customer, address, subtotal, vat, shipping, discount, grand_total, doc_status, car_id, driver_name, pay_status, date_out, time_out, date_in, time_in, ref_tax_id, ref_receipt_id, seal_no, pay_term, ship_method, driver_license, receiver_name, issuer_name, sender_name, checker_name, remark, comp_name, comp_address, comp_tax_id, comp_phone, comp_doc_title])
             for it in st.session_state.invoice_items:
                 ws_item.append_row([new_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
