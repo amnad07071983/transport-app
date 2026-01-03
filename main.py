@@ -90,24 +90,24 @@ def create_pdf(inv, items):
     w, h = A4
     
     # --- ส่วนหัวเอกสาร ---
-    c.setFont("ThaiFontBold", 20) # ขยายจาก 18
+    c.setFont("ThaiFontBold", 20)
     c.drawString(2*cm, h-1.5*cm, str(inv.get('comp_name', '')))
     
-    c.setFont("ThaiFontBold", 12) # ขยายจาก 10
+    c.setFont("ThaiFontBold", 12)
     c.drawString(2*cm, h-2.2*cm, f"ที่อยู่: {inv.get('comp_address', '')}")
     c.drawString(2*cm, h-2.8*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  |  โทร: {inv.get('comp_phone', '')}")
     
     # --- ส่วนหัวขวา ---
-    c.setFont("ThaiFontBold", 22) # ขยายจาก 16
+    c.setFont("ThaiFontBold", 22)
     c.drawRightString(19*cm, h-1.5*cm, str(inv.get('comp_doc_title', 'ใบกำกับขนส่ง')))
-    c.setFont("ThaiFontBold", 13) # ขยายจาก 11
+    c.setFont("ThaiFontBold", 13)
     c.drawRightString(19*cm, h-2.3*cm, f"เลขที่: {inv.get('invoice_no','')}")
     c.drawRightString(19*cm, h-3.0*cm, f"วันที่: {inv.get('date','')}")
 
     # --- ข้อมูลลูกค้า ---
-    c.setFont("ThaiFontBold", 14) # ขยายจาก 12
+    c.setFont("ThaiFontBold", 14)
     c.drawString(2*cm, h-4.2*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
-    c.setFont("ThaiFontBold", 12) # ขยายจาก 10
+    c.setFont("ThaiFontBold", 12)
     c.drawString(2*cm, h-4.9*cm, f"ที่อยู่: {inv.get('address','')}")
     c.drawString(2*cm, h-5.6*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
 
@@ -120,7 +120,7 @@ def create_pdf(inv, items):
     ]
     t_trans = Table(transport_data, colWidths=[6*cm, 6*cm, 5*cm])
     t_trans.setStyle(TableStyle([
-        ('FONT', (0,0), (-1,-1), 'ThaiFontBold', 10), # ขยายจาก 9
+        ('FONT', (0,0), (-1,-1), 'ThaiFontBold', 10),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
     t_trans.wrapOn(c, 2*cm, h-8.5*cm)
@@ -134,10 +134,9 @@ def create_pdf(inv, items):
                           f"{float(it.get('price', 0)):,.2f}", f"{float(it.get('amount', 0)):,.2f}"])
     
     t_items = Table(item_header + item_rows, colWidths=[1.2*cm, 7.8*cm, 2*cm, 2*cm, 2*cm, 2*cm])
-    
     t_items.setStyle(TableStyle([
-        ('FONT', (0,0), (-1,0), 'ThaiFontBold', 12), # หัวตารางขยายเป็น 12
-        ('FONT', (0,1), (-1,-1), 'ThaiFontBold', 11), # เนื้อหาขยายเป็น 11
+        ('FONT', (0,0), (-1,0), 'ThaiFontBold', 12),
+        ('FONT', (0,1), (-1,-1), 'ThaiFontBold', 11),
         ('TEXTCOLOR', (0,0), (-1,-1), colors.black),
         ('ALIGN', (0,0), (0,-1), 'CENTER'),
         ('ALIGN', (5,0), (5,-1), 'RIGHT'),
@@ -150,7 +149,7 @@ def create_pdf(inv, items):
 
     # --- สรุปยอดเงิน ---
     curr_y = t_y - 1*cm
-    c.setFont("ThaiFontBold", 11) # ขยายจาก 10
+    c.setFont("ThaiFontBold", 11)
     c.drawString(2.2*cm, curr_y, f"หมายเหตุ: {inv.get('remark','-')}")
     c.drawRightString(16*cm, curr_y, "ค่าขนส่ง:")
     c.drawRightString(19*cm, curr_y, f"{float(inv.get('shipping', 0)):,.2f}")
@@ -159,7 +158,7 @@ def create_pdf(inv, items):
     c.drawRightString(16*cm, curr_y-1.4*cm, "ส่วนลด:")
     c.drawRightString(19*cm, curr_y-1.4*cm, f"{float(inv.get('discount', 0)):,.2f}")
     
-    c.setFont("ThaiFontBold", 16) # ขยายจาก 14
+    c.setFont("ThaiFontBold", 16)
     c.line(13*cm, curr_y-1.7*cm, 19*cm, curr_y-1.7*cm)
     c.drawRightString(16*cm, curr_y-2.5*cm, "ยอดสุทธิ:")
     c.drawRightString(19*cm, curr_y-2.5*cm, f"{float(inv.get('total', 0)):,.2f} บาท")
@@ -171,7 +170,85 @@ def create_pdf(inv, items):
     for i, (lab, val) in enumerate(labels):
         x = 2*cm + (i * 4.3*cm)
         c.line(x, sig_y, x+3.5*cm, sig_y)
-        c.setFont("ThaiFontBold", 10) # ขยายจาก 9
+        c.setFont("ThaiFontBold", 10)
+        c.drawCentredString(x+1.75*cm, sig_y-0.6*cm, f"({val if val else '.......................'})")
+        c.drawCentredString(x+1.75*cm, sig_y-1.2*cm, lab)
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf
+
+def create_pdf_v2(inv, items):
+    """เวอร์ชัน 2: ตัดราคาออก เหลือแค่ ชื่อสินค้า หน่วย จำนวน และยอดรวมจำนวน"""
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+    
+    # --- ส่วนหัวเอกสาร (เหมือนเดิม) ---
+    c.setFont("ThaiFontBold", 20)
+    c.drawString(2*cm, h-1.5*cm, str(inv.get('comp_name', '')))
+    c.setFont("ThaiFontBold", 12)
+    c.drawString(2*cm, h-2.2*cm, f"ที่อยู่: {inv.get('comp_address', '')}")
+    c.drawString(2*cm, h-2.8*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  |  โทร: {inv.get('comp_phone', '')}")
+    
+    c.setFont("ThaiFontBold", 22)
+    c.drawRightString(19*cm, h-1.5*cm, str(inv.get('comp_doc_title', 'ใบกำกับขนส่ง')))
+    c.setFont("ThaiFontBold", 13)
+    c.drawRightString(19*cm, h-2.3*cm, f"เลขที่: {inv.get('invoice_no','')}")
+    c.drawRightString(19*cm, h-3.0*cm, f"วันที่: {inv.get('date','')}")
+
+    c.setFont("ThaiFontBold", 14)
+    c.drawString(2*cm, h-4.2*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
+    c.setFont("ThaiFontBold", 12)
+    c.drawString(2*cm, h-4.9*cm, f"ที่อยู่: {inv.get('address','')}")
+    c.drawString(2*cm, h-5.6*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
+
+    transport_data = [
+        [f"ทะเบียนรถ: {inv.get('car_id','')}", f"ออก: {inv.get('date_out','')} {inv.get('time_out','')}", f"สถานะบิล: {inv.get('doc_status','')}"],
+        [f"ชื่อคนขับ: {inv.get('driver_name','')}", f"เข้า: {inv.get('date_in','')} {inv.get('time_in','')}", f"การชำระ: {inv.get('pay_status','')}"],
+        [f"ใบขับขี่: {inv.get('driver_license','')}", f"วิธีขนส่ง: {inv.get('ship_method','')}", f"Seal No: {inv.get('seal_no','')}"],
+        [f"เงื่อนไขชำระ: {inv.get('pay_term','')}", "", ""]
+    ]
+    t_trans = Table(transport_data, colWidths=[6*cm, 6*cm, 5*cm])
+    t_trans.setStyle(TableStyle([('FONT', (0,0), (-1,-1), 'ThaiFontBold', 10), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+    t_trans.wrapOn(c, 2*cm, h-8.5*cm)
+    t_trans.drawOn(c, 2*cm, h-8.5*cm)
+
+    # --- ตารางรายการสินค้า (แก้ไข V2) ---
+    item_header = [["ลำดับ", "รายการสินค้า/บริการ", "หน่วย", "จำนวน"]]
+    item_rows = []
+    total_qty = 0
+    for i, it in enumerate(items):
+        qty = it.get('qty', 0)
+        item_rows.append([i+1, it.get("product", ""), it.get("unit", ""), f"{qty:,}"])
+        total_qty += qty
+    
+    # เพิ่มแถวยอดรวมจำนวน
+    item_rows.append(["", "ยอดรวมจำนวนทั้งสิ้น", "", f"{total_qty:,}"])
+    
+    t_items = Table(item_header + item_rows, colWidths=[1.5*cm, 10.5*cm, 2.5*cm, 2.5*cm])
+    t_items.setStyle(TableStyle([
+        ('FONT', (0,0), (-1,0), 'ThaiFontBold', 12),
+        ('FONT', (0,1), (-1,-1), 'ThaiFontBold', 11),
+        ('ALIGN', (0,0), (0,-1), 'CENTER'),
+        ('ALIGN', (3,0), (3,-1), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LINEBELOW', (0,0), (-1,0), 1, colors.black),
+        ('LINEBELOW', (0,-1), (-1,-1), 1, colors.black), # เส้นปิดท้ายยอดรวม
+    ]))
+    tw, th = t_items.wrapOn(c, 2*cm, h-16*cm)
+    t_y = h - 9.5*cm - th
+    t_items.drawOn(c, 2*cm, t_y)
+
+    # ส่วนลายเซ็น (เหมือนเดิม)
+    sig_y = 3*cm
+    labels = [("ผู้รับสินค้า", inv.get('receiver_name','')), ("ผู้ส่งสินค้า", inv.get('sender_name','')), 
+              ("ผู้ตรวจสอบ", inv.get('checker_name','')), ("ผู้ออกบิล", inv.get('issuer_name',''))]
+    for i, (lab, val) in enumerate(labels):
+        x = 2*cm + (i * 4.3*cm)
+        c.line(x, sig_y, x+3.5*cm, sig_y)
+        c.setFont("ThaiFontBold", 10)
         c.drawCentredString(x+1.75*cm, sig_y-0.6*cm, f"({val if val else '.......................'})")
         c.drawCentredString(x+1.75*cm, sig_y-1.2*cm, lab)
 
@@ -196,7 +273,7 @@ with st.expander("🔍 ค้นหาและจัดการประวั
             old_inv = inv_df[inv_df["invoice_no"] == sel_no].iloc[0].to_dict()
             old_items = item_df[item_df["invoice_no"] == sel_no].to_dict('records')
             
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns(3)
             with c1:
                 if st.button("🔄 สร้างรายการซ้ำ"):
                     st.session_state.form_customer = old_inv.get("customer", "")
@@ -208,7 +285,9 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.invoice_items = old_items
                     st.rerun()
             with c2:
-                st.download_button(f"📥 ดาวน์โหลด PDF {sel_no}", create_pdf(old_inv, old_items), f"{sel_no}.pdf")
+                st.download_button(f"📥 ดาวน์โหลด PDF {sel_no}", create_pdf(old_inv, old_items), f"{sel_no}.pdf", use_container_width=True)
+            with c3:
+                st.download_button(f"📥 ดาวน์โหลด PDF V2 (ไม่แสดงราคา)", create_pdf_v2(old_inv, old_items), f"{sel_no}_v2.pdf", use_container_width=True)
     else:
         st.info("ยังไม่มีข้อมูลในระบบ")
 
@@ -296,6 +375,10 @@ if st.button("💾 บันทึกและสร้างเอกสาร"
             
             pdf_data = {"invoice_no": new_no, "date": date_now, "customer": customer, "address": address, "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total, "ref_tax_id": ref_tax_id, "ref_receipt_id": ref_receipt_id, "car_id": car_id, "driver_name": driver_name, "driver_license": driver_license, "date_out": date_out, "time_out": time_out, "date_in": date_in, "time_in": time_in, "seal_no": seal_no, "ship_method": ship_method, "pay_term": pay_term, "doc_status": doc_status, "pay_status": pay_status, "receiver_name": receiver_name, "sender_name": sender_name, "checker_name": checker_name, "issuer_name": issuer_name, "remark": remark, "comp_name": comp_name, "comp_address": comp_address, "comp_tax_id": comp_tax_id, "comp_phone": comp_phone, "comp_doc_title": comp_doc_title}
             st.success(f"บันทึกสำเร็จ: {new_no}")
-            st.download_button("📥 ดาวน์โหลด PDF", create_pdf(pdf_data, st.session_state.invoice_items), f"{new_no}.pdf")
+            
+            sc1, sc2 = st.columns(2)
+            sc1.download_button("📥 ดาวน์โหลด PDF (ต้นฉบับ)", create_pdf(pdf_data, st.session_state.invoice_items), f"{new_no}.pdf", use_container_width=True)
+            sc2.download_button("📥 ดาวน์โหลด PDF V2 (ไม่แสดงราคา)", create_pdf_v2(pdf_data, st.session_state.invoice_items), f"{new_no}_v2.pdf", use_container_width=True)
+            
             st.cache_data.clear()
-            reset_form()
+            # reset_form() # เอาออกเพื่อให้ปุ่มโหลดยังคงอยู่หลังจากกดบันทึก ถ้าต้องการให้หายไปค่อยเปิดใช้งาน
