@@ -270,7 +270,7 @@ def create_pdf_v2(inv, items):
     return buf
 
 # ================= 4. MAIN UI (คงเดิม) =================
-st.title("🚚 ใบขนส่งสินค้า (Pro)")
+st.title("🚚 ใบกำกับขนส่งสินค้า")
 
 with st.expander("🔍 ค้นหาและจัดการประวัติเอกสาร"):
     if not inv_df.empty:
@@ -297,9 +297,9 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.invoice_items = old_items
                     st.rerun()
             with c2:
-                st.download_button(f"📥 ดาวน์โหลด PDF {sel_no} (ตัวใหญ่)", create_pdf(old_inv, old_items), f"{sel_no}.pdf", use_container_width=True)
+                st.download_button(f"📥 ดาวน์โหลด PDF {sel_no} (แสดงราคา)", create_pdf(old_inv, old_items), f"{sel_no}.pdf", use_container_width=True)
             with c3:
-                st.download_button(f"📥 ดาวน์โหลด PDF V2 (ไม่แสดงราคา)", create_pdf_v2(old_inv, old_items), f"{sel_no}_v2.pdf", use_container_width=True)
+                st.download_button(f"📥 ดาวน์โหลด PDF {sel_no} V2 (ไม่แสดงราคา)", create_pdf_v2(old_inv, old_items), f"{sel_no}_v2.pdf", use_container_width=True)
     else:
         st.info("ยังไม่มีข้อมูลในระบบ")
 
