@@ -16,7 +16,7 @@ from reportlab.lib import colors
 # ================= 1. CONFIG & INITIALIZATION =================
 st.set_page_config(page_title="Logistics System Pro", layout="wide")
 
-# ลงทะเบียนฟอนต์ภาษาไทย (ต้องมีไฟล์ .ttf ในโฟลเดอร์เดียวกับโค้ด)
+# ลงทะเบียนฟอนต์ภาษาไทย
 try:
     pdfmetrics.registerFont(TTFont('ThaiFontBold', 'THSARABUN BOLD.ttf'))
 except:
@@ -90,28 +90,28 @@ def create_pdf(inv, items):
     w, h = A4
     
     # --- ส่วนหัวเอกสาร ---
-    c.setFont("ThaiFontBold", 18)
+    c.setFont("ThaiFontBold", 20) # ขยายจาก 18
     c.drawString(2*cm, h-1.5*cm, str(inv.get('comp_name', '')))
     
-    c.setFont("ThaiFontBold", 10)
-    c.drawString(2*cm, h-2.1*cm, f"ที่อยู่: {inv.get('comp_address', '')}")
-    c.drawString(2*cm, h-2.6*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  |  โทร: {inv.get('comp_phone', '')}")
+    c.setFont("ThaiFontBold", 12) # ขยายจาก 10
+    c.drawString(2*cm, h-2.2*cm, f"ที่อยู่: {inv.get('comp_address', '')}")
+    c.drawString(2*cm, h-2.8*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  |  โทร: {inv.get('comp_phone', '')}")
     
-    # --- ส่วนหัวขวา (แยกเลขที่และวันที่คนละแถว ไม่มีเส้นขอบ และไม่มีสี) ---
-    c.setFont("ThaiFontBold", 16)
+    # --- ส่วนหัวขวา ---
+    c.setFont("ThaiFontBold", 22) # ขยายจาก 16
     c.drawRightString(19*cm, h-1.5*cm, str(inv.get('comp_doc_title', 'ใบกำกับขนส่ง')))
-    c.setFont("ThaiFontBold", 11)
-    c.drawRightString(19*cm, h-2.2*cm, f"เลขที่: {inv.get('invoice_no','')}")
-    c.drawRightString(19*cm, h-2.8*cm, f"วันที่: {inv.get('date','')}")
+    c.setFont("ThaiFontBold", 13) # ขยายจาก 11
+    c.drawRightString(19*cm, h-2.3*cm, f"เลขที่: {inv.get('invoice_no','')}")
+    c.drawRightString(19*cm, h-3.0*cm, f"วันที่: {inv.get('date','')}")
 
     # --- ข้อมูลลูกค้า ---
-    c.setFont("ThaiFontBold", 12)
-    c.drawString(2*cm, h-4.0*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
-    c.setFont("ThaiFontBold", 10)
-    c.drawString(2*cm, h-4.6*cm, f"ที่อยู่: {inv.get('address','')}")
-    c.drawString(2*cm, h-5.3*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
+    c.setFont("ThaiFontBold", 14) # ขยายจาก 12
+    c.drawString(2*cm, h-4.2*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
+    c.setFont("ThaiFontBold", 12) # ขยายจาก 10
+    c.drawString(2*cm, h-4.9*cm, f"ที่อยู่: {inv.get('address','')}")
+    c.drawString(2*cm, h-5.6*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
 
-    # --- ตารางรายละเอียดขนส่ง (ไม่มีเส้นขอบ) ---
+    # --- ตารางรายละเอียดขนส่ง ---
     transport_data = [
         [f"ทะเบียนรถ: {inv.get('car_id','')}", f"ออก: {inv.get('date_out','')} {inv.get('time_out','')}", f"สถานะบิล: {inv.get('doc_status','')}"],
         [f"ชื่อคนขับ: {inv.get('driver_name','')}", f"เข้า: {inv.get('date_in','')} {inv.get('time_in','')}", f"การชำระ: {inv.get('pay_status','')}"],
@@ -120,13 +120,13 @@ def create_pdf(inv, items):
     ]
     t_trans = Table(transport_data, colWidths=[6*cm, 6*cm, 5*cm])
     t_trans.setStyle(TableStyle([
-        ('FONT', (0,0), (-1,-1), 'ThaiFontBold', 9),
+        ('FONT', (0,0), (-1,-1), 'ThaiFontBold', 10), # ขยายจาก 9
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
-    t_trans.wrapOn(c, 2*cm, h-8.0*cm)
-    t_trans.drawOn(c, 2*cm, h-8.0*cm)
+    t_trans.wrapOn(c, 2*cm, h-8.5*cm)
+    t_trans.drawOn(c, 2*cm, h-8.5*cm)
 
-    # --- ตารางรายการสินค้า (ไม่มีสี ไม่มีเส้นขอบ ยกเว้นเส้นใต้หัวตาราง) ---
+    # --- ตารางรายการสินค้า ---
     item_header = [["ลำดับ", "รายการสินค้า/บริการ", "หน่วย", "จำนวน", "ราคา/หน่วย", "รวมเงิน"]]
     item_rows = []
     for i, it in enumerate(items):
@@ -136,31 +136,33 @@ def create_pdf(inv, items):
     t_items = Table(item_header + item_rows, colWidths=[1.2*cm, 7.8*cm, 2*cm, 2*cm, 2*cm, 2*cm])
     
     t_items.setStyle(TableStyle([
-        ('FONT', (0,0), (-1,-1), 'ThaiFontBold', 10),
+        ('FONT', (0,0), (-1,0), 'ThaiFontBold', 12), # หัวตารางขยายเป็น 12
+        ('FONT', (0,1), (-1,-1), 'ThaiFontBold', 11), # เนื้อหาขยายเป็น 11
         ('TEXTCOLOR', (0,0), (-1,-1), colors.black),
         ('ALIGN', (0,0), (0,-1), 'CENTER'),
         ('ALIGN', (5,0), (5,-1), 'RIGHT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.black), # คงเส้นใต้หัวตารางไว้หนึ่งเส้นเพื่อความชัดเจน
+        ('LINEBELOW', (0,0), (-1,0), 1, colors.black), 
     ]))
-    tw, th = t_items.wrapOn(c, 2*cm, h-15*cm)
-    t_y = h - 9.0*cm - th
+    tw, th = t_items.wrapOn(c, 2*cm, h-16*cm)
+    t_y = h - 9.5*cm - th
     t_items.drawOn(c, 2*cm, t_y)
 
     # --- สรุปยอดเงิน ---
     curr_y = t_y - 1*cm
-    c.setFont("ThaiFontBold", 10)
+    c.setFont("ThaiFontBold", 11) # ขยายจาก 10
     c.drawString(2.2*cm, curr_y, f"หมายเหตุ: {inv.get('remark','-')}")
     c.drawRightString(16*cm, curr_y, "ค่าขนส่ง:")
     c.drawRightString(19*cm, curr_y, f"{float(inv.get('shipping', 0)):,.2f}")
-    c.drawRightString(16*cm, curr_y-0.6*cm, "ภาษี (VAT):")
-    c.drawRightString(19*cm, curr_y-0.6*cm, f"{float(inv.get('vat', 0)):,.2f}")
-    c.drawRightString(16*cm, curr_y-1.2*cm, "ส่วนลด:")
-    c.drawRightString(19*cm, curr_y-1.2*cm, f"{float(inv.get('discount', 0)):,.2f}")
-    c.setFont("ThaiFontBold", 14)
-    c.line(13*cm, curr_y-1.5*cm, 19*cm, curr_y-1.5*cm) # เส้นคั่นก่อนยอดสุทธิ
-    c.drawRightString(16*cm, curr_y-2.2*cm, "ยอดสุทธิ:")
-    c.drawRightString(19*cm, curr_y-2.2*cm, f"{float(inv.get('total', 0)):,.2f} บาท")
+    c.drawRightString(16*cm, curr_y-0.7*cm, "ภาษี (VAT):")
+    c.drawRightString(19*cm, curr_y-0.7*cm, f"{float(inv.get('vat', 0)):,.2f}")
+    c.drawRightString(16*cm, curr_y-1.4*cm, "ส่วนลด:")
+    c.drawRightString(19*cm, curr_y-1.4*cm, f"{float(inv.get('discount', 0)):,.2f}")
+    
+    c.setFont("ThaiFontBold", 16) # ขยายจาก 14
+    c.line(13*cm, curr_y-1.7*cm, 19*cm, curr_y-1.7*cm)
+    c.drawRightString(16*cm, curr_y-2.5*cm, "ยอดสุทธิ:")
+    c.drawRightString(19*cm, curr_y-2.5*cm, f"{float(inv.get('total', 0)):,.2f} บาท")
 
     # --- ส่วนลายเซ็น ---
     sig_y = 3*cm
@@ -169,9 +171,9 @@ def create_pdf(inv, items):
     for i, (lab, val) in enumerate(labels):
         x = 2*cm + (i * 4.3*cm)
         c.line(x, sig_y, x+3.5*cm, sig_y)
-        c.setFont("ThaiFontBold", 9)
-        c.drawCentredString(x+1.75*cm, sig_y-0.5*cm, f"({val if val else '.......................'})")
-        c.drawCentredString(x+1.75*cm, sig_y-1.0*cm, lab)
+        c.setFont("ThaiFontBold", 10) # ขยายจาก 9
+        c.drawCentredString(x+1.75*cm, sig_y-0.6*cm, f"({val if val else '.......................'})")
+        c.drawCentredString(x+1.75*cm, sig_y-1.2*cm, lab)
 
     c.showPage()
     c.save()
@@ -179,7 +181,7 @@ def create_pdf(inv, items):
     return buf
 
 # ================= 4. MAIN UI =================
-st.title("🚚 ใบขนส่งสินค้า")
+st.title("🚚 ใบขนส่งสินค้า (Pro)")
 
 with st.expander("🔍 ค้นหาและจัดการประวัติเอกสาร"):
     if not inv_df.empty:
