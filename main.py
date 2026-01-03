@@ -299,7 +299,7 @@ with st.expander("🔍 ค้นหาและจัดการประวั
             with c2:
                 st.download_button(f"📥 ดาวน์โหลด PDF {sel_no} (แสดงราคา)", create_pdf(old_inv, old_items), f"{sel_no}.pdf", use_container_width=True)
             with c3:
-                st.download_button(f"📥 ดาวน์โหลด PDF {sel_no} V2 (ไม่แสดงราคา)", create_pdf_v2(old_inv, old_items), f"{sel_no}_v2.pdf", use_container_width=True)
+                st.download_button(f"📥 ดาวน์โหลด PDF {sel_no} (ไม่แสดงราคา)", create_pdf_v2(old_inv, old_items), f"{sel_no}_v2.pdf", use_container_width=True)
     else:
         st.info("ยังไม่มีข้อมูลในระบบ")
 
