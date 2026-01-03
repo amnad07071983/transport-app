@@ -16,11 +16,10 @@ from reportlab.lib import colors
 # ================= 1. CONFIG & INITIALIZATION =================
 st.set_page_config(page_title="Logistics System Pro", layout="wide")
 
-# ลงทะเบียนฟอนต์ภาษาไทย
 try:
     pdfmetrics.registerFont(TTFont('ThaiFontBold', 'THSARABUN BOLD.ttf'))
 except:
-    st.error("⚠️ ไม่พบไฟล์ฟอนต์ 'THSARABUN BOLD.ttf' กรุณาตรวจสอบไฟล์ในเซิร์ฟเวอร์")
+    st.error("⚠️ ไม่พบไฟล์ฟอนต์ 'THSARABUN BOLD.ttf'")
 
 SHEET_ID = "1ZdTeTyDkrvR3ZbIisCJdzKRlU8jMvFvnSvtEmQR2Tzs"
 INV_SHEET = "Invoices"
@@ -43,7 +42,6 @@ def get_data_cached():
     except Exception:
         return pd.DataFrame(), pd.DataFrame()
 
-# เชื่อมต่อข้อมูล
 try:
     client = init_sheet()
     inv_df, item_df = get_data_cached()
@@ -53,13 +51,13 @@ except:
     inv_df, item_df = pd.DataFrame(), pd.DataFrame()
 
 # ================= 2. SESSION STATE & FORM RESET =================
+# เรียงลำดับตาม Google Sheets: A=invoice_no, B=date, C=customer, D=address, E=subtotal, F=vat, G=shipping, H=discount, I=total...
 transport_fields = [
     "doc_status", "car_id", "driver_name", "payment_status", "date_out", "time_out",
     "date_in", "time_in", "ref_tax_id", "ref_receipt_id", "seal_no",
     "pay_term", "ship_method", "driver_license", "receiver_name",
     "issuer_name", "sender_name", "checker_name", "remark",
-    "comp_name", "comp_address", "comp_tax_id", "comp_phone", "comp_doc_title",
-    "total"  # เพิ่มฟิลด์ total เพื่อใช้พักข้อมูลเวลาแก้ไข
+    "comp_name", "comp_address", "comp_tax_id", "comp_phone", "comp_doc_title"
 ]
 
 def reset_form():
@@ -69,7 +67,8 @@ def reset_form():
     st.session_state.form_shipping = 0.0
     st.session_state.form_discount = 0.0
     st.session_state.form_vat = 0.0
-    st.session_state.form_total = 0.0  # เพิ่มการ reset total
+    st.session_state.form_subtotal = 0.0 # เพิ่มใหม่
+    st.session_state.form_total = 0.0    # เพิ่มใหม่
     st.session_state.editing_no = None  
     st.session_state.last_saved_data = None
     for field in transport_fields:
@@ -217,13 +216,12 @@ def create_pdf_v2(inv, items):
 
 # ================= 4. MAIN UI =================
 st.title("🚚 ใบกำกับขนส่งสินค้า")
-
 st.link_button("📊 ฐานข้อมูล", SHEET_URL, use_container_width=True, type="secondary")
 
 with st.expander("🔍 ค้นหาและจัดการประวัติเอกสาร"):
     if not inv_df.empty:
-        options = [f"{r['invoice_no']} | {r.get('comp_name','N/A')} | {r['customer']} | วันที่: {r['date']} | สถานะ: {r['doc_status']}" for _, r in inv_df.iterrows()]
-        selected = st.selectbox("เลือกรายการประวัติ (เลขที่ | บริษัท | ลูกค้า | วันที่ | สถานะ)", [""] + options[::-1])
+        options = [f"{r['invoice_no']} | {r.get('comp_name','N/A')} | {r['customer']} | วันที่: {r['date']}" for _, r in inv_df.iterrows()]
+        selected = st.selectbox("เลือกรายการประวัติ", [""] + options[::-1])
         if selected:
             sel_no = selected.split(" | ")[0]
             old_inv = inv_df[inv_df["invoice_no"] == sel_no].iloc[0].to_dict()
@@ -238,7 +236,8 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.form_shipping = float(old_inv.get("shipping", 0))
                     st.session_state.form_discount = float(old_inv.get("discount", 0))
                     st.session_state.form_vat = float(old_inv.get("vat", 0))
-                    # โหลดฟิลด์อื่นๆ รวมถึง total กลับเข้า session state
+                    st.session_state.form_subtotal = float(old_inv.get("subtotal", 0)) # โหลดค่า subtotal
+                    st.session_state.form_total = float(old_inv.get("total", 0))       # โหลดค่า total
                     for f in transport_fields: st.session_state[f"form_{f}"] = str(old_inv.get(f, ""))
                     st.session_state.invoice_items = old_items
                     st.rerun()
@@ -250,7 +249,8 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.form_shipping = float(old_inv.get("shipping", 0))
                     st.session_state.form_discount = float(old_inv.get("discount", 0))
                     st.session_state.form_vat = float(old_inv.get("vat", 0))
-                    # โหลดฟิลด์อื่นๆ รวมถึง total กลับเข้า session state
+                    st.session_state.form_subtotal = float(old_inv.get("subtotal", 0)) # โหลดค่า subtotal
+                    st.session_state.form_total = float(old_inv.get("total", 0))       # โหลดค่า total
                     for f in transport_fields: st.session_state[f"form_{f}"] = str(old_inv.get(f, ""))
                     st.session_state.invoice_items = old_items
                     st.success(f"กำลังแก้ไขบิลเลขที่: {sel_no}")
@@ -338,6 +338,44 @@ if st.session_state.invoice_items:
 # --- ส่วนบันทึกและแสดงปุ่ม PDF ---
 btn_col1, btn_col2 = st.columns(2)
 
+# ** ฟังก์ชันรวบรวมข้อมูลให้ลำดับตรงกับ Google Sheets **
+def get_final_data(inv_no, date_val):
+    return {
+        "invoice_no": inv_no,
+        "date": date_val,
+        "customer": customer,
+        "address": address,
+        "subtotal": subtotal, # คอลัมน์ E
+        "vat": vat,           # คอลัมน์ F
+        "shipping": shipping, # คอลัมน์ G
+        "discount": discount, # คอลัมน์ H
+        "total": grand_total,  # คอลัมน์ I
+        "doc_status": doc_status,
+        "car_id": car_id,
+        "driver_name": driver_name,
+        "pay_status": pay_status,
+        "date_out": date_out,
+        "time_out": time_out,
+        "date_in": date_in,
+        "time_in": time_in,
+        "ref_tax_id": ref_tax_id,
+        "ref_receipt_id": ref_receipt_id,
+        "seal_no": seal_no,
+        "pay_term": pay_term,
+        "ship_method": ship_method,
+        "driver_license": driver_license,
+        "receiver_name": receiver_name,
+        "issuer_name": issuer_name,
+        "sender_name": sender_name,
+        "checker_name": checker_name,
+        "remark": remark,
+        "comp_name": comp_name,
+        "comp_address": comp_address,
+        "comp_tax_id": comp_tax_id,
+        "comp_phone": comp_phone,
+        "comp_doc_title": comp_doc_title
+    }
+
 if not st.session_state.editing_no:
     if btn_col1.button("💾 บันทึกข้อมูลใหม่", type="primary", use_container_width=True):
         if not customer or not comp_name: st.error("กรุณากรอกชื่อลูกค้าและข้อมูลบริษัทให้ครบถ้วน")
@@ -345,7 +383,7 @@ if not st.session_state.editing_no:
             with st.spinner("กำลังบันทึก..."):
                 new_no = next_inv_no(inv_df)
                 date_now = datetime.now().strftime("%d/%m/%Y")
-                data_pdf = {"invoice_no": new_no, "date": date_now, "customer": customer, "address": address, "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total, "doc_status": doc_status, "car_id": car_id, "driver_name": driver_name, "pay_status": pay_status, "date_out": date_out, "time_out": time_out, "date_in": date_in, "time_in": time_in, "ref_tax_id": ref_tax_id, "ref_receipt_id": ref_receipt_id, "seal_no": seal_no, "pay_term": pay_term, "ship_method": ship_method, "driver_license": driver_license, "receiver_name": receiver_name, "issuer_name": issuer_name, "sender_name": sender_name, "checker_name": checker_name, "remark": remark, "comp_name": comp_name, "comp_address": comp_address, "comp_tax_id": comp_tax_id, "comp_phone": comp_phone, "comp_doc_title": comp_doc_title}
+                data_pdf = get_final_data(new_no, date_now)
                 
                 ws_inv.append_row(list(data_pdf.values()))
                 for it in st.session_state.invoice_items: ws_item.append_row([new_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
@@ -359,10 +397,12 @@ else:
             edit_no = st.session_state.editing_no
             cell = ws_inv.find(edit_no)
             row_idx = cell.row
-            date_val = old_inv.get('date', datetime.now().strftime("%d/%m/%Y")) # ใช้ค่าวันที่เดิม
-            data_pdf = {"invoice_no": edit_no, "date": date_val, "customer": customer, "address": address, "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total, "doc_status": doc_status, "car_id": car_id, "driver_name": driver_name, "pay_status": pay_status, "date_out": date_out, "time_out": time_out, "date_in": date_in, "time_in": time_in, "ref_tax_id": ref_tax_id, "ref_receipt_id": ref_receipt_id, "seal_no": seal_no, "pay_term": pay_term, "ship_method": ship_method, "driver_license": driver_license, "receiver_name": receiver_name, "issuer_name": issuer_name, "sender_name": sender_name, "checker_name": checker_name, "remark": remark, "comp_name": comp_name, "comp_address": comp_address, "comp_tax_id": comp_tax_id, "comp_phone": comp_phone, "comp_doc_title": comp_doc_title}
+            date_val = old_inv.get('date', datetime.now().strftime("%d/%m/%Y"))
+            data_pdf = get_final_data(edit_no, date_val)
             
+            # อัปเดตทั้งแถวเพื่อให้ลำดับข้อมูลถูกต้องตามคอลัมน์ A-AG
             ws_inv.update(f'A{row_idx}:AG{row_idx}', [list(data_pdf.values())])
+            
             all_items = ws_item.get_all_values()
             new_item_sheet_data = [row for row in all_items if row[0] != edit_no]
             for it in st.session_state.invoice_items:
@@ -378,12 +418,11 @@ if btn_col2.button("🧹 ล้างฟอร์ม", use_container_width=True)
     reset_form()
     st.rerun()
 
-# --- 2. แสดงปุ่มดาวน์โหลด PDF หลังจากบันทึกเสร็จ ---
 if st.session_state.last_saved_data:
     st.divider()
     st.subheader("📥 ดาวน์โหลดเอกสารที่เพิ่งบันทึก")
     pdf_inv = st.session_state.last_saved_data["inv"]
     pdf_items = st.session_state.last_saved_data["items"]
     p_col1, p_col2 = st.columns(2)
-    p_col1.download_button("📥 ดาวน์โหลด PDF V1 (แสดงราคา)", create_pdf(pdf_inv, pdf_items), f"{pdf_inv['invoice_no']}_V1.pdf", use_container_width=True, type="secondary")
-    p_col2.download_button("📥 ดาวน์โหลด PDF V2 (ไม่แสดงราคา)", create_pdf_v2(pdf_inv, pdf_items), f"{pdf_inv['invoice_no']}_V2.pdf", use_container_width=True, type="secondary")
+    p_col1.download_button("📥 PDF V1", create_pdf(pdf_inv, pdf_items), f"{pdf_inv['invoice_no']}_V1.pdf", use_container_width=True, type="secondary")
+    p_col2.download_button("📥 PDF V2", create_pdf_v2(pdf_inv, pdf_items), f"{pdf_inv['invoice_no']}_V2.pdf", use_container_width=True, type="secondary")
