@@ -180,30 +180,32 @@ def create_pdf(inv, items):
     return buf
 
 def create_pdf_v2(inv, items):
-    """เวอร์ชัน 2: ตัดราคาออก เหลือแค่ ชื่อสินค้า หน่วย จำนวน และยอดรวมจำนวน"""
+    """เวอร์ชัน 2: ตัดราคาออก เพิ่มขนาดตัวอักษร ชื่อสินค้า หน่วย จำนวน และยอดรวมจำนวน"""
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
     
-    # --- ส่วนหัวเอกสาร (เหมือนเดิม) ---
-    c.setFont("ThaiFontBold", 20)
+    # --- ส่วนหัวเอกสาร ---
+    c.setFont("ThaiFontBold", 24) # เพิ่มจาก 20
     c.drawString(2*cm, h-1.5*cm, str(inv.get('comp_name', '')))
-    c.setFont("ThaiFontBold", 12)
-    c.drawString(2*cm, h-2.2*cm, f"ที่อยู่: {inv.get('comp_address', '')}")
-    c.drawString(2*cm, h-2.8*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  |  โทร: {inv.get('comp_phone', '')}")
+    c.setFont("ThaiFontBold", 14) # เพิ่มจาก 12
+    c.drawString(2*cm, h-2.3*cm, f"ที่อยู่: {inv.get('comp_address', '')}")
+    c.drawString(2*cm, h-3.0*cm, f"เลขประจำตัวผู้เสียภาษี: {inv.get('comp_tax_id', '')}  |  โทร: {inv.get('comp_phone', '')}")
     
-    c.setFont("ThaiFontBold", 22)
+    c.setFont("ThaiFontBold", 26) # เพิ่มจาก 22
     c.drawRightString(19*cm, h-1.5*cm, str(inv.get('comp_doc_title', 'ใบกำกับขนส่ง')))
-    c.setFont("ThaiFontBold", 13)
-    c.drawRightString(19*cm, h-2.3*cm, f"เลขที่: {inv.get('invoice_no','')}")
-    c.drawRightString(19*cm, h-3.0*cm, f"วันที่: {inv.get('date','')}")
+    c.setFont("ThaiFontBold", 15) # เพิ่มจาก 13
+    c.drawRightString(19*cm, h-2.4*cm, f"เลขที่: {inv.get('invoice_no','')}")
+    c.drawRightString(19*cm, h-3.1*cm, f"วันที่: {inv.get('date','')}")
 
-    c.setFont("ThaiFontBold", 14)
-    c.drawString(2*cm, h-4.2*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
-    c.setFont("ThaiFontBold", 12)
-    c.drawString(2*cm, h-4.9*cm, f"ที่อยู่: {inv.get('address','')}")
-    c.drawString(2*cm, h-5.6*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
+    # --- ข้อมูลลูกค้า ---
+    c.setFont("ThaiFontBold", 16) # เพิ่มจาก 14
+    c.drawString(2*cm, h-4.5*cm, f"ชื่อลูกค้า: {inv.get('customer','')}")
+    c.setFont("ThaiFontBold", 14) # เพิ่มจาก 12
+    c.drawString(2*cm, h-5.3*cm, f"ที่อยู่: {inv.get('address','')}")
+    c.drawString(2*cm, h-6.1*cm, f"Ref Tax ID: {inv.get('ref_tax_id','-')} | Ref Receipt: {inv.get('ref_receipt_id','-')}")
 
+    # --- ตารางรายละเอียดขนส่ง ---
     transport_data = [
         [f"ทะเบียนรถ: {inv.get('car_id','')}", f"ออก: {inv.get('date_out','')} {inv.get('time_out','')}", f"สถานะบิล: {inv.get('doc_status','')}"],
         [f"ชื่อคนขับ: {inv.get('driver_name','')}", f"เข้า: {inv.get('date_in','')} {inv.get('time_in','')}", f"การชำระ: {inv.get('pay_status','')}"],
@@ -211,11 +213,11 @@ def create_pdf_v2(inv, items):
         [f"เงื่อนไขชำระ: {inv.get('pay_term','')}", "", ""]
     ]
     t_trans = Table(transport_data, colWidths=[6*cm, 6*cm, 5*cm])
-    t_trans.setStyle(TableStyle([('FONT', (0,0), (-1,-1), 'ThaiFontBold', 10), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
-    t_trans.wrapOn(c, 2*cm, h-8.5*cm)
-    t_trans.drawOn(c, 2*cm, h-8.5*cm)
+    t_trans.setStyle(TableStyle([('FONT', (0,0), (-1,-1), 'ThaiFontBold', 12), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')])) # เพิ่มจาก 10
+    t_trans.wrapOn(c, 2*cm, h-9.5*cm)
+    t_trans.drawOn(c, 2*cm, h-9.5*cm)
 
-    # --- ตารางรายการสินค้า (แก้ไข V2) ---
+    # --- ตารางรายการสินค้า (V2) ---
     item_header = [["ลำดับ", "รายการสินค้า/บริการ", "หน่วย", "จำนวน"]]
     item_rows = []
     total_qty = 0
@@ -229,28 +231,33 @@ def create_pdf_v2(inv, items):
     
     t_items = Table(item_header + item_rows, colWidths=[1.5*cm, 10.5*cm, 2.5*cm, 2.5*cm])
     t_items.setStyle(TableStyle([
-        ('FONT', (0,0), (-1,0), 'ThaiFontBold', 12),
-        ('FONT', (0,1), (-1,-1), 'ThaiFontBold', 11),
+        ('FONT', (0,0), (-1,0), 'ThaiFontBold', 15), # หัวตารางเพิ่มจาก 12
+        ('FONT', (0,1), (-1,-1), 'ThaiFontBold', 14), # เนื้อหาเพิ่มจาก 11
         ('ALIGN', (0,0), (0,-1), 'CENTER'),
         ('ALIGN', (3,0), (3,-1), 'RIGHT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('LINEBELOW', (0,0), (-1,0), 1, colors.black),
-        ('LINEBELOW', (0,-1), (-1,-1), 1, colors.black), # เส้นปิดท้ายยอดรวม
+        ('LINEBELOW', (0,-1), (-1,-1), 1, colors.black),
     ]))
-    tw, th = t_items.wrapOn(c, 2*cm, h-16*cm)
-    t_y = h - 9.5*cm - th
+    tw, th = t_items.wrapOn(c, 2*cm, h-18*cm)
+    t_y = h - 11.0*cm - th
     t_items.drawOn(c, 2*cm, t_y)
 
-    # ส่วนลายเซ็น (เหมือนเดิม)
-    sig_y = 3*cm
+    # --- หมายเหตุ (V2) ---
+    curr_y = t_y - 1.2*cm
+    c.setFont("ThaiFontBold", 13)
+    c.drawString(2.2*cm, curr_y, f"หมายเหตุ: {inv.get('remark','-')}")
+
+    # --- ส่วนลายเซ็น (V2) ---
+    sig_y = 3.5*cm
     labels = [("ผู้รับสินค้า", inv.get('receiver_name','')), ("ผู้ส่งสินค้า", inv.get('sender_name','')), 
               ("ผู้ตรวจสอบ", inv.get('checker_name','')), ("ผู้ออกบิล", inv.get('issuer_name',''))]
     for i, (lab, val) in enumerate(labels):
         x = 2*cm + (i * 4.3*cm)
         c.line(x, sig_y, x+3.5*cm, sig_y)
-        c.setFont("ThaiFontBold", 10)
-        c.drawCentredString(x+1.75*cm, sig_y-0.6*cm, f"({val if val else '.......................'})")
-        c.drawCentredString(x+1.75*cm, sig_y-1.2*cm, lab)
+        c.setFont("ThaiFontBold", 12) # เพิ่มจาก 10
+        c.drawCentredString(x+1.75*cm, sig_y-0.7*cm, f"({val if val else '.......................'})")
+        c.drawCentredString(x+1.75*cm, sig_y-1.4*cm, lab)
 
     c.showPage()
     c.save()
@@ -287,7 +294,7 @@ with st.expander("🔍 ค้นหาและจัดการประวั
             with c2:
                 st.download_button(f"📥 ดาวน์โหลด PDF {sel_no}", create_pdf(old_inv, old_items), f"{sel_no}.pdf", use_container_width=True)
             with c3:
-                st.download_button(f"📥 ดาวน์โหลด PDF V2 (ไม่แสดงราคา)", create_pdf_v2(old_inv, old_items), f"{sel_no}_v2.pdf", use_container_width=True)
+                st.download_button(f"📥 ดาวน์โหลด PDF V2 (ตัวใหญ่พิเศษ)", create_pdf_v2(old_inv, old_items), f"{sel_no}_v2.pdf", use_container_width=True)
     else:
         st.info("ยังไม่มีข้อมูลในระบบ")
 
@@ -378,7 +385,6 @@ if st.button("💾 บันทึกและสร้างเอกสาร"
             
             sc1, sc2 = st.columns(2)
             sc1.download_button("📥 ดาวน์โหลด PDF (ต้นฉบับ)", create_pdf(pdf_data, st.session_state.invoice_items), f"{new_no}.pdf", use_container_width=True)
-            sc2.download_button("📥 ดาวน์โหลด PDF V2 (ไม่แสดงราคา)", create_pdf_v2(pdf_data, st.session_state.invoice_items), f"{new_no}_v2.pdf", use_container_width=True)
+            sc2.download_button("📥 ดาวน์โหลด PDF V2 (ตัวใหญ่พิเศษ)", create_pdf_v2(pdf_data, st.session_state.invoice_items), f"{new_no}_v2.pdf", use_container_width=True)
             
             st.cache_data.clear()
-            # reset_form() # เอาออกเพื่อให้ปุ่มโหลดยังคงอยู่หลังจากกดบันทึก ถ้าต้องการให้หายไปค่อยเปิดใช้งาน
