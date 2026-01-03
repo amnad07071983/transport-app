@@ -255,8 +255,8 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.invoice_items = old_items
                     st.success(f"กำลังแก้ไขบิลเลขที่: {sel_no}")
                     st.rerun()
-            with c3: st.download_button(f"📥 PDF {sel_no}", create_pdf(old_inv, old_items), f"{sel_no}.pdf", use_container_width=True)
-            with c4: st.download_button(f"📥 PDF V2 {sel_no}", create_pdf_v2(old_inv, old_items), f"{sel_no}_v2.pdf", use_container_width=True)
+            with c3: st.download_button(f"📥 PDF {sel_no} แสดงราคา", create_pdf(old_inv, old_items), f"{sel_no}.pdf", use_container_width=True)
+            with c4: st.download_button(f"📥 PDF {sel_no} แสดงจำนวน", create_pdf_v2(old_inv, old_items), f"{sel_no}_v2.pdf", use_container_width=True)
     else: st.info("ยังไม่มีข้อมูลในระบบ")
 
 st.divider()
