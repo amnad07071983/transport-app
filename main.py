@@ -58,7 +58,8 @@ transport_fields = [
     "date_in", "time_in", "ref_tax_id", "ref_receipt_id", "seal_no",
     "pay_term", "ship_method", "driver_license", "receiver_name",
     "issuer_name", "sender_name", "checker_name", "remark",
-    "comp_name", "comp_address", "comp_tax_id", "comp_phone", "comp_doc_title"
+    "comp_name", "comp_address", "comp_tax_id", "comp_phone", "comp_doc_title",
+    "total"  # เพิ่มฟิลด์ total เพื่อใช้พักข้อมูลเวลาแก้ไข
 ]
 
 def reset_form():
@@ -68,8 +69,9 @@ def reset_form():
     st.session_state.form_shipping = 0.0
     st.session_state.form_discount = 0.0
     st.session_state.form_vat = 0.0
+    st.session_state.form_total = 0.0  # เพิ่มการ reset total
     st.session_state.editing_no = None  
-    st.session_state.last_saved_data = None # เพิ่มสำหรับเก็บข้อมูลไว้สร้าง PDF หลังบันทึก
+    st.session_state.last_saved_data = None
     for field in transport_fields:
         st.session_state[f"form_{field}"] = ""
     st.session_state.form_doc_status = "รอดำเนินการ"
@@ -236,6 +238,7 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.form_shipping = float(old_inv.get("shipping", 0))
                     st.session_state.form_discount = float(old_inv.get("discount", 0))
                     st.session_state.form_vat = float(old_inv.get("vat", 0))
+                    # โหลดฟิลด์อื่นๆ รวมถึง total กลับเข้า session state
                     for f in transport_fields: st.session_state[f"form_{f}"] = str(old_inv.get(f, ""))
                     st.session_state.invoice_items = old_items
                     st.rerun()
@@ -247,6 +250,7 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.form_shipping = float(old_inv.get("shipping", 0))
                     st.session_state.form_discount = float(old_inv.get("discount", 0))
                     st.session_state.form_vat = float(old_inv.get("vat", 0))
+                    # โหลดฟิลด์อื่นๆ รวมถึง total กลับเข้า session state
                     for f in transport_fields: st.session_state[f"form_{f}"] = str(old_inv.get(f, ""))
                     st.session_state.invoice_items = old_items
                     st.success(f"กำลังแก้ไขบิลเลขที่: {sel_no}")
@@ -355,7 +359,7 @@ else:
             edit_no = st.session_state.editing_no
             cell = ws_inv.find(edit_no)
             row_idx = cell.row
-            date_val = datetime.now().strftime("%d/%m/%Y") # หรือใช้ค่าเดิม
+            date_val = old_inv.get('date', datetime.now().strftime("%d/%m/%Y")) # ใช้ค่าวันที่เดิม
             data_pdf = {"invoice_no": edit_no, "date": date_val, "customer": customer, "address": address, "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total, "doc_status": doc_status, "car_id": car_id, "driver_name": driver_name, "pay_status": pay_status, "date_out": date_out, "time_out": time_out, "date_in": date_in, "time_in": time_in, "ref_tax_id": ref_tax_id, "ref_receipt_id": ref_receipt_id, "seal_no": seal_no, "pay_term": pay_term, "ship_method": ship_method, "driver_license": driver_license, "receiver_name": receiver_name, "issuer_name": issuer_name, "sender_name": sender_name, "checker_name": checker_name, "remark": remark, "comp_name": comp_name, "comp_address": comp_address, "comp_tax_id": comp_tax_id, "comp_phone": comp_phone, "comp_doc_title": comp_doc_title}
             
             ws_inv.update(f'A{row_idx}:AG{row_idx}', [list(data_pdf.values())])
