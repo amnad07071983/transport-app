@@ -68,7 +68,8 @@ def reset_form():
     st.session_state.form_shipping = 0.0
     st.session_state.form_discount = 0.0
     st.session_state.form_vat = 0.0
-    st.session_state.editing_no = None  # สำหรับเก็บเลขที่บิลที่กำลังแก้ไข
+    st.session_state.editing_no = None  
+    st.session_state.last_saved_data = None # เพิ่มสำหรับเก็บข้อมูลไว้สร้าง PDF หลังบันทึก
     for field in transport_fields:
         st.session_state[f"form_{field}"] = ""
     st.session_state.form_doc_status = "รอดำเนินการ"
@@ -87,7 +88,6 @@ def next_inv_no(df):
     except: return "INV-0001"
 
 def create_pdf(inv, items):
-    """เวอร์ชัน 1: ขนาดตัวอักษรใหญ่พิเศษ (Extra Large) + เพิ่มยอดรวมจำนวน"""
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
@@ -156,7 +156,6 @@ def create_pdf(inv, items):
     return buf
 
 def create_pdf_v2(inv, items):
-    """เวอร์ชัน 2: ไม่แสดงราคา (คงเดิมตามไฟล์ที่ให้มา)"""
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
@@ -217,10 +216,8 @@ def create_pdf_v2(inv, items):
 # ================= 4. MAIN UI =================
 st.title("🚚 ใบกำกับขนส่งสินค้า")
 
-# --- 1. Database Button ---
 st.link_button("📊 ฐานข้อมูล", SHEET_URL, use_container_width=True, type="secondary")
 
-# --- 2. History Section ---
 with st.expander("🔍 ค้นหาและจัดการประวัติเอกสาร"):
     if not inv_df.empty:
         options = [f"{r['invoice_no']} | {r.get('comp_name','N/A')} | {r['customer']} | วันที่: {r['date']} | สถานะ: {r['doc_status']}" for _, r in inv_df.iterrows()]
@@ -243,7 +240,6 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.invoice_items = old_items
                     st.rerun()
             with c2:
-                # ปุ่มดึงข้อมูลขึ้นมาแก้ไข
                 if st.button("📝 ดึงข้อมูลมาแก้ไข"):
                     st.session_state.editing_no = sel_no
                     st.session_state.form_customer = old_inv.get("customer", "")
@@ -261,7 +257,6 @@ with st.expander("🔍 ค้นหาและจัดการประวั
 
 st.divider()
 
-# --- 3. Entry Form ---
 if st.session_state.editing_no:
     st.warning(f"🚨 กำลังอยู่ในโหมดแก้ไขเอกสารเลขที่: {st.session_state.editing_no}")
     if st.button("❌ ยกเลิกการแก้ไข"):
@@ -336,10 +331,9 @@ if st.session_state.invoice_items:
     grand_total = subtotal + vat + shipping - discount
     st.write(f"### ยอดรวมสุทธิ: {grand_total:,.2f} บาท")
 
-# --- ปุ่มบันทึกข้อมูล (Save New / Update Existing) ---
+# --- ส่วนบันทึกและแสดงปุ่ม PDF ---
 btn_col1, btn_col2 = st.columns(2)
 
-# ปุ่มสำหรับบันทึกบิลใหม่
 if not st.session_state.editing_no:
     if btn_col1.button("💾 บันทึกข้อมูลใหม่", type="primary", use_container_width=True):
         if not customer or not comp_name: st.error("กรุณากรอกชื่อลูกค้าและข้อมูลบริษัทให้ครบถ้วน")
@@ -347,38 +341,45 @@ if not st.session_state.editing_no:
             with st.spinner("กำลังบันทึก..."):
                 new_no = next_inv_no(inv_df)
                 date_now = datetime.now().strftime("%d/%m/%Y")
-                ws_inv.append_row([new_no, date_now, customer, address, subtotal, vat, shipping, discount, grand_total, doc_status, car_id, driver_name, pay_status, date_out, time_out, date_in, time_in, ref_tax_id, ref_receipt_id, seal_no, pay_term, ship_method, driver_license, receiver_name, issuer_name, sender_name, checker_name, remark, comp_name, comp_address, comp_tax_id, comp_phone, comp_doc_title])
+                data_pdf = {"invoice_no": new_no, "date": date_now, "customer": customer, "address": address, "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total, "doc_status": doc_status, "car_id": car_id, "driver_name": driver_name, "pay_status": pay_status, "date_out": date_out, "time_out": time_out, "date_in": date_in, "time_in": time_in, "ref_tax_id": ref_tax_id, "ref_receipt_id": ref_receipt_id, "seal_no": seal_no, "pay_term": pay_term, "ship_method": ship_method, "driver_license": driver_license, "receiver_name": receiver_name, "issuer_name": issuer_name, "sender_name": sender_name, "checker_name": checker_name, "remark": remark, "comp_name": comp_name, "comp_address": comp_address, "comp_tax_id": comp_tax_id, "comp_phone": comp_phone, "comp_doc_title": comp_doc_title}
+                
+                ws_inv.append_row(list(data_pdf.values()))
                 for it in st.session_state.invoice_items: ws_item.append_row([new_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
+                
+                st.session_state.last_saved_data = {"inv": data_pdf, "items": list(st.session_state.invoice_items)}
                 st.success(f"บันทึกสำเร็จ: {new_no}")
                 st.cache_data.clear()
-                reset_form()
-                st.rerun()
-
-# ปุ่มสำหรับบันทึกการแก้ไข (Update)
 else:
     if btn_col1.button("✅ บันทึกการแก้ไข", type="primary", use_container_width=True):
-        with st.spinner("กำลังอัปเดตข้อมูล..."):
+        with st.spinner("กำลังอัปเดต..."):
             edit_no = st.session_state.editing_no
-            # 1. อัปเดตข้อมูลใน Sheet Invoices (ค้นหาจากเลขที่บิล)
             cell = ws_inv.find(edit_no)
             row_idx = cell.row
-            updated_data = [edit_no, old_inv.get('date', datetime.now().strftime("%d/%m/%Y")), customer, address, subtotal, vat, shipping, discount, grand_total, doc_status, car_id, driver_name, pay_status, date_out, time_out, date_in, time_in, ref_tax_id, ref_receipt_id, seal_no, pay_term, ship_method, driver_license, receiver_name, issuer_name, sender_name, checker_name, remark, comp_name, comp_address, comp_tax_id, comp_phone, comp_doc_title]
-            ws_inv.update(f'A{row_idx}:AG{row_idx}', [updated_data])
+            date_val = datetime.now().strftime("%d/%m/%Y") # หรือใช้ค่าเดิม
+            data_pdf = {"invoice_no": edit_no, "date": date_val, "customer": customer, "address": address, "shipping": shipping, "vat": vat, "discount": discount, "total": grand_total, "doc_status": doc_status, "car_id": car_id, "driver_name": driver_name, "pay_status": pay_status, "date_out": date_out, "time_out": time_out, "date_in": date_in, "time_in": time_in, "ref_tax_id": ref_tax_id, "ref_receipt_id": ref_receipt_id, "seal_no": seal_no, "pay_term": pay_term, "ship_method": ship_method, "driver_license": driver_license, "receiver_name": receiver_name, "issuer_name": issuer_name, "sender_name": sender_name, "checker_name": checker_name, "remark": remark, "comp_name": comp_name, "comp_address": comp_address, "comp_tax_id": comp_tax_id, "comp_phone": comp_phone, "comp_doc_title": comp_doc_title}
             
-            # 2. ลบรายการสินค้าเก่าและบันทึกใหม่
+            ws_inv.update(f'A{row_idx}:AG{row_idx}', [list(data_pdf.values())])
             all_items = ws_item.get_all_values()
-            new_item_sheet_data = [row for row in all_items if row[0] != edit_no] # เก็บข้อมูลที่ไม่ใช่เลขที่บิลนี้ไว้
+            new_item_sheet_data = [row for row in all_items if row[0] != edit_no]
             for it in st.session_state.invoice_items:
                 new_item_sheet_data.append([edit_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
-            
             ws_item.clear()
             ws_item.update('A1', new_item_sheet_data)
             
-            st.success(f"อัปเดตข้อมูล {edit_no} เรียบร้อยแล้ว!")
+            st.session_state.last_saved_data = {"inv": data_pdf, "items": list(st.session_state.invoice_items)}
+            st.success(f"อัปเดต {edit_no} สำเร็จ!")
             st.cache_data.clear()
-            reset_form()
-            st.rerun()
 
 if btn_col2.button("🧹 ล้างฟอร์ม", use_container_width=True):
     reset_form()
     st.rerun()
+
+# --- 2. แสดงปุ่มดาวน์โหลด PDF หลังจากบันทึกเสร็จ ---
+if st.session_state.last_saved_data:
+    st.divider()
+    st.subheader("📥 ดาวน์โหลดเอกสารที่เพิ่งบันทึก")
+    pdf_inv = st.session_state.last_saved_data["inv"]
+    pdf_items = st.session_state.last_saved_data["items"]
+    p_col1, p_col2 = st.columns(2)
+    p_col1.download_button("📥 ดาวน์โหลด PDF V1 (แสดงราคา)", create_pdf(pdf_inv, pdf_items), f"{pdf_inv['invoice_no']}_V1.pdf", use_container_width=True, type="secondary")
+    p_col2.download_button("📥 ดาวน์โหลด PDF V2 (ไม่แสดงราคา)", create_pdf_v2(pdf_inv, pdf_items), f"{pdf_inv['invoice_no']}_V2.pdf", use_container_width=True, type="secondary")
