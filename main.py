@@ -249,7 +249,7 @@ def create_pdf_v2(inv, items):
 st.title("🚚 ใบกำกับขนส่งสินค้า")
 
 # --- 1. Database Button ---
-st.link_button("📊 Database", SHEET_URL, use_container_width=True, type="secondary")
+st.link_button("📊 ฐานข้อมูล", SHEET_URL, use_container_width=True, type="secondary")
 
 # --- 2. History Section ---
 with st.expander("🔍 ค้นหาและจัดการประวัติเอกสาร"):
