@@ -438,5 +438,5 @@ if st.session_state.last_saved_data:
     pdf_inv = st.session_state.last_saved_data["inv"]
     pdf_items = st.session_state.last_saved_data["items"]
     p_col1, p_col2 = st.columns(2)
-    p_col1.download_button("📥 PDF V1", create_pdf(pdf_inv, pdf_items), f"{pdf_inv['invoice_no']}_V1.pdf", use_container_width=True, type="secondary")
-    p_col2.download_button("📥 PDF V2", create_pdf_v2(pdf_inv, pdf_items), f"{pdf_inv['invoice_no']}_V2.pdf", use_container_width=True, type="secondary")
+    p_col1.download_button("📥 PDF แสดงราคา", create_pdf(pdf_inv, pdf_items), f"{pdf_inv['invoice_no']}_V1.pdf", use_container_width=True, type="secondary")
+    p_col2.download_button("📥 PDF แสดงจำนวน", create_pdf_v2(pdf_inv, pdf_items), f"{pdf_inv['invoice_no']}_V2.pdf", use_container_width=True, type="secondary")
