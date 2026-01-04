@@ -51,7 +51,6 @@ except:
     inv_df, item_df = pd.DataFrame(), pd.DataFrame()
 
 # ================= 2. SESSION STATE & FORM RESET =================
-# เรียงลำดับตาม Google Sheets: A=invoice_no, B=date, C=customer, D=address, E=subtotal, F=vat, G=shipping, H=discount, I=total...
 transport_fields = [
     "doc_status", "car_id", "driver_name", "payment_status", "date_out", "time_out",
     "date_in", "time_in", "ref_tax_id", "ref_receipt_id", "seal_no",
@@ -67,8 +66,8 @@ def reset_form():
     st.session_state.form_shipping = 0.0
     st.session_state.form_discount = 0.0
     st.session_state.form_vat = 0.0
-    st.session_state.form_subtotal = 0.0 # เพิ่มใหม่
-    st.session_state.form_total = 0.0    # เพิ่มใหม่
+    st.session_state.form_subtotal = 0.0
+    st.session_state.form_total = 0.0
     st.session_state.editing_no = None  
     st.session_state.last_saved_data = None
     for field in transport_fields:
@@ -81,12 +80,30 @@ if "invoice_items" not in st.session_state:
 
 # ================= 3. CORE FUNCTIONS (PDF & LOGIC) =================
 def next_inv_no(df):
-    if df.empty or "invoice_no" not in df.columns: return "INV-0001"
-    last = df["invoice_no"].iloc[-1]
+    """
+    สร้างเลขที่เอกสารใหม่ในรูปแบบ INV-YYYY-MM-XXXX
+    เช่น INV-2026-01-0001
+    หากขึ้นเดือนใหม่จะเริ่มนับ 0001 ใหม่
+    """
+    now = datetime.now()
+    prefix = f"INV-{now.year}-{now.month:02d}" # ผลลัพธ์: INV-2026-01
+    
+    if df.empty or "invoice_no" not in df.columns:
+        return f"{prefix}-0001"
+    
+    # กรองเฉพาะรายการที่ขึ้นต้นด้วย prefix ของเดือนปัจจุบัน
+    current_month_docs = df[df["invoice_no"].astype(str).str.startswith(prefix)]
+    
+    if current_month_docs.empty:
+        return f"{prefix}-0001"
+    
+    # ดึงลำดับ 4 ตัวท้ายมาหาค่าสูงสุด
     try:
-        num = int(str(last).split('-')[1])
-        return f"INV-{num + 1:04d}"
-    except: return "INV-0001"
+        last_no = current_month_docs["invoice_no"].iloc[-1]
+        last_seq = int(str(last_no).split('-')[-1])
+        return f"{prefix}-{last_seq + 1:04d}"
+    except:
+        return f"{prefix}-0001"
 
 def create_pdf(inv, items):
     buf = io.BytesIO()
@@ -215,7 +232,7 @@ def create_pdf_v2(inv, items):
     return buf
 
 # ================= 4. MAIN UI =================
-st.markdown("## 🚚 ใบกำกับขนส่งสินค้า") # ใหญ่กลาง
+st.markdown("## 🚚 ใบกำกับขนส่งสินค้า")
 st.link_button("📊 ฐานข้อมูล", SHEET_URL, use_container_width=True, type="secondary")
 
 with st.expander("🔍 ค้นหาและจัดการประวัติเอกสาร"):
@@ -236,8 +253,8 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.form_shipping = float(old_inv.get("shipping", 0))
                     st.session_state.form_discount = float(old_inv.get("discount", 0))
                     st.session_state.form_vat = float(old_inv.get("vat", 0))
-                    st.session_state.form_subtotal = float(old_inv.get("subtotal", 0)) # โหลดค่า subtotal
-                    st.session_state.form_total = float(old_inv.get("total", 0))       # โหลดค่า total
+                    st.session_state.form_subtotal = float(old_inv.get("subtotal", 0))
+                    st.session_state.form_total = float(old_inv.get("total", 0))
                     for f in transport_fields: st.session_state[f"form_{f}"] = str(old_inv.get(f, ""))
                     st.session_state.invoice_items = old_items
                     st.rerun()
@@ -249,8 +266,8 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.form_shipping = float(old_inv.get("shipping", 0))
                     st.session_state.form_discount = float(old_inv.get("discount", 0))
                     st.session_state.form_vat = float(old_inv.get("vat", 0))
-                    st.session_state.form_subtotal = float(old_inv.get("subtotal", 0)) # โหลดค่า subtotal
-                    st.session_state.form_total = float(old_inv.get("total", 0))       # โหลดค่า total
+                    st.session_state.form_subtotal = float(old_inv.get("subtotal", 0))
+                    st.session_state.form_total = float(old_inv.get("total", 0))
                     for f in transport_fields: st.session_state[f"form_{f}"] = str(old_inv.get(f, ""))
                     st.session_state.invoice_items = old_items
                     st.success(f"กำลังแก้ไขบิลเลขที่: {sel_no}")
@@ -335,21 +352,19 @@ if st.session_state.invoice_items:
     grand_total = subtotal + vat + shipping - discount
     st.write(f"### ยอดรวมสุทธิ: {grand_total:,.2f} บาท")
 
-# --- ส่วนบันทึกและแสดงปุ่ม PDF ---
 btn_col1, btn_col2 = st.columns(2)
 
-# ** ฟังก์ชันรวบรวมข้อมูลให้ลำดับตรงกับ Google Sheets **
 def get_final_data(inv_no, date_val):
     return {
         "invoice_no": inv_no,
         "date": date_val,
         "customer": customer,
         "address": address,
-        "subtotal": subtotal, # คอลัมน์ E
-        "vat": vat,           # คอลัมน์ F
-        "shipping": shipping, # คอลัมน์ G
-        "discount": discount, # คอลัมน์ H
-        "total": grand_total,  # คอลัมน์ I
+        "subtotal": subtotal,
+        "vat": vat,
+        "shipping": shipping,
+        "discount": discount,
+        "total": grand_total,
         "doc_status": doc_status,
         "car_id": car_id,
         "driver_name": driver_name,
@@ -400,7 +415,6 @@ else:
             date_val = old_inv.get('date', datetime.now().strftime("%d/%m/%Y"))
             data_pdf = get_final_data(edit_no, date_val)
             
-            # อัปเดตทั้งแถวเพื่อให้ลำดับข้อมูลถูกต้องตามคอลัมน์ A-AG
             ws_inv.update(f'A{row_idx}:AG{row_idx}', [list(data_pdf.values())])
             
             all_items = ws_item.get_all_values()
