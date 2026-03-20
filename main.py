@@ -65,7 +65,6 @@ def reset_form():
     st.session_state.invoice_items = []
     st.session_state.form_customer = ""
     st.session_state.form_address = ""
-    # กำหนดวันที่เริ่มต้นเป็นปัจจุบัน
     st.session_state.form_date = datetime.now().strftime("%d/%m/%Y") 
     st.session_state.form_shipping = 0.0
     st.session_state.form_discount = 0.0
@@ -98,15 +97,22 @@ def add_single_watermark(c, w, h):
     except:
         pass
 
-def next_inv_no(df):
+def next_inv_no():
+    # ดึงข้อมูลสดๆ จาก Sheet เพื่อไม่ให้เลขซ้ำ (ไม่ใช้ Cache)
+    client_fresh = init_sheet()
+    data = client_fresh.worksheet(INV_SHEET).get_all_records()
+    df_fresh = pd.DataFrame(data)
+    
     now = datetime.now()
     prefix = f"INV-{now.year}-{now.month:02d}"
-    if df.empty or "invoice_no" not in df.columns:
+    if df_fresh.empty or "invoice_no" not in df_fresh.columns:
         return f"{prefix}-0001"
-    current_month_docs = df[df["invoice_no"].astype(str).str.startswith(prefix)]
+    
+    current_month_docs = df_fresh[df_fresh["invoice_no"].astype(str).str.startswith(prefix)]
     if current_month_docs.empty:
         return f"{prefix}-0001"
     try:
+        # ดึงเลขสูงสุดในเดือนนั้นๆ มา +1
         last_no = current_month_docs["invoice_no"].iloc[-1]
         last_seq = int(str(last_no).split('-')[-1])
         return f"{prefix}-{last_seq + 1:04d}"
@@ -270,7 +276,6 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     reset_form()
                     st.session_state.form_customer = old_inv.get("customer", "")
                     st.session_state.form_address = old_inv.get("address", "")
-                    # ดึงวันที่จากประวัติมาใส่
                     st.session_state.form_date = str(old_inv.get("date", "")) 
                     st.session_state.form_shipping = float(old_inv.get("shipping", 0))
                     st.session_state.form_discount = float(old_inv.get("discount", 0))
@@ -285,7 +290,6 @@ with st.expander("🔍 ค้นหาและจัดการประวั
                     st.session_state.editing_no = sel_no
                     st.session_state.form_customer = old_inv.get("customer", "")
                     st.session_state.form_address = old_inv.get("address", "")
-                    # ดึงวันที่จากประวัติมาใส่เพื่อส่งเข้าช่อง Input
                     st.session_state.form_date = str(old_inv.get("date", "")) 
                     st.session_state.form_shipping = float(old_inv.get("shipping", 0))
                     st.session_state.form_discount = float(old_inv.get("discount", 0))
@@ -315,9 +319,6 @@ with tab1:
     col1, col2 = st.columns(2)
     customer = col1.text_input("ชื่อลูกค้า", value=st.session_state.form_customer)
     address = col1.text_area("ที่อยู่ลูกค้า", value=st.session_state.form_address)
-    
-    # === ส่วนที่แก้ไข: ผูกค่า form_date เข้ากับช่องกรอกเพื่อดึงข้อมูลขึ้นมาแสดง ===
-    # ตรงนี้จะดึงค่าจาก st.session_state.form_date ที่ได้จากการกด "แก้ไข" มาแสดง
     invoice_date = col1.text_input("วันที่ (DD/MM/YYYY)", value=st.session_state.form_date) 
     
     doc_status = col2.selectbox("สถานะเอกสาร", ["รอดำเนินการ", "ยกเลิก", "ใช้งาน"], index=["รอดำเนินการ", "ยกเลิก", "ใช้งาน"].index(st.session_state.form_doc_status) if st.session_state.form_doc_status in ["รอดำเนินการ", "ยกเลิก", "ใช้งาน"] else 0)
@@ -393,8 +394,8 @@ if not st.session_state.editing_no:
         if not customer or not comp_name: st.error("กรุณากรอกชื่อลูกค้าและข้อมูลบริษัทให้ครบถ้วน")
         else:
             with st.spinner("กำลังบันทึก..."):
-                new_no = next_inv_no(inv_df)
-                # ใช้วันที่ที่กรอกในช่อง invoice_date
+                # รันเลขใหม่จังหวะนี้ เพื่อให้ได้เลขล่าสุดจริงๆ
+                new_no = next_inv_no() 
                 data_pdf = get_final_data(new_no, invoice_date) 
                 ws_inv.append_row(list(data_pdf.values()))
                 for it in st.session_state.invoice_items: ws_item.append_row([new_no, it['product'], it.get('unit',''), it['qty'], it['price'], it['amount']])
@@ -407,7 +408,6 @@ else:
             edit_no = st.session_state.editing_no
             cell = ws_inv.find(edit_no)
             row_idx = cell.row
-            # ใช้วันที่ที่แก้ไขในหน้าฟอร์ม (invoice_date)
             data_pdf = get_final_data(edit_no, invoice_date) 
             ws_inv.update(f'A{row_idx}:AG{row_idx}', [list(data_pdf.values())])
             all_items = ws_item.get_all_values()
