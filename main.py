@@ -242,7 +242,13 @@ def generate_pdf_file(inv_no, items, data_dict=None):
     return buf
 
 # ================= 4. MAIN UI =================
-st.title("🚚 ใบกำกับขนส่ง JP PARTNER")
+# ส่วนที่เพิ่มลิงค์เปิดฐานข้อมูล
+col_title, col_link = st.columns([3, 1])
+with col_title:
+    st.title("🚚 ใบกำกับขนส่ง JP PARTNER")
+with col_link:
+    st.write("") # เว้นระยะ
+    st.link_button("📂 เปิดฐานข้อมูล (Google Sheets)", f"https://docs.google.com/spreadsheets/d/{SHEET_ID}", use_container_width=True)
 
 with st.expander("🔍 ค้นหา/แก้ไข/พิมพ์บิลเก่า"):
     if not inv_df.empty:
