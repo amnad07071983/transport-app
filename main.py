@@ -61,7 +61,7 @@ transport_fields = [
     "ข้อมูลพนักงานขับรถ-ชื่อ", "ข้อมูลพนักงานขับรถ-เลขใบขับขี่", "ข้อมูลพนักงานขับรถ-เบอร์โทร", "ข้อมูลพนักงานขับรถ-ทะเบียนรถ",
     "ข้อมูลพนักงานขับรถ-วิธีขนส่ง", "ข้อมูลพนักงานขับรถ-วันออกเดินทาง", "ข้อมูลพนักงานขับรถ-เวลาออกเดินทาง",
     "ข้อมูลพนักงานขับรถ-วันที่ถึงปลายทาง", "ข้อมูลพนักงานขับรถ-เวลาที่ถึงปลายทาง",
-    "การยืนยันและรับสินค้า-ผู้ออกเอกสาร", "การยืนยันและรับสินค้า-พนักงานขับรถ", "การยืนยันและรับสินค้า-ผู้รับสินค้า",
+    "การยืนยันและรับสินค้า-ผู้ออกเอกสาร", "การืนยันและรับสินค้า-พนักงานขับรถ", "การยืนยันและรับสินค้า-ผู้รับสินค้า",
     "ผู้จำหน่าย-ชื่อ", "ผู้จำหน่าย-ที่อยู่", "ผู้จำหน่าย-เลขผู้เสียภาษี", "ผู้จำหน่าย-เบอร์โทร",
     "ผู้จำหน่าย-ชื่อเอกสาร", "ผู้จำหน่าย-อธิบายเพิ่ม"
 ]
@@ -100,7 +100,6 @@ def generate_pdf_file(inv_no, items, data_dict=None):
         return st.session_state.get(f"in_{key}", default)
 
     for idx, label in enumerate(page_labels):
-        # --- ลายน้ำตัวเลขจางพิเศษ (0.03) ---
         c.saveState()
         c.setFont(FONT_NAME, 200)
         c.setFillAlpha(0.05) 
@@ -302,19 +301,36 @@ if st.button("💾 บันทึกและอัปเดต PDF", type="pri
         if inv_df.empty: return f"{prefix}-0001"
         curr = inv_df[inv_df[INV_KEY].astype(str).str.startswith(prefix)]
         if curr.empty: return f"{prefix}-0001"
-        last_val = str(curr[INV_KEY].iloc[-1]).split('-')[-1]
-        return f"{prefix}-{int(last_val)+1:04d}"
+        
+        # ค้นหาค่าสูงสุดจากเลขลำดับ 4 หลักสุดท้าย
+        suffixes = curr[INV_KEY].apply(lambda x: int(str(x).split('-')[-1]))
+        max_val = suffixes.max()
+        return f"{prefix}-{int(max_val)+1:04d}"
     
     final_no = st.session_state.editing_no if st.session_state.editing_no else get_next_no()
+    new_data = [final_no, st.session_state.form_date] + [st.session_state[f"in_{f}"] for f in transport_fields]
+
     if st.session_state.editing_no:
+        # --- กรณีแก้ไข: อัปเดตแผ่นงาน Invoices โดยหาแถวเดิม ---
         try:
-            for ws in [ws_inv, ws_item]:
-                found = ws.findall(final_no)
-                for cell in reversed(found): ws.delete_rows(cell.row)
+            cell = ws_inv.find(final_no)
+            if cell:
+                # อัปเดตทั้งแถวในตำแหน่งเดิม
+                ws_inv.update(f"A{cell.row}", [new_data])
+            
+            # สำหรับ InvoiceItems จำเป็นต้องลบของเก่าเลขเดิมออกก่อนเพื่อรองรับจำนวนรายการที่เปลี่ยนไป
+            found_items = ws_item.findall(final_no)
+            for cell_it in reversed(found_items):
+                ws_item.delete_rows(cell_it.row)
         except: pass
-    ws_inv.append_row([final_no, st.session_state.form_date] + [st.session_state[f"in_{f}"] for f in transport_fields])
+    else:
+        # --- กรณีสร้างใหม่: เพิ่มแถวต่อท้ายปกติ ---
+        ws_inv.append_row(new_data)
+
+    # เพิ่มรายการสินค้าใหม่เสมอ (ทั้งกรณีสร้างใหม่และแก้ไข)
     for it in st.session_state.invoice_items:
         ws_item.append_row([final_no, it['product'], it['unit'], it['qty'], it['tank'], it['seal']])
+
     st.session_state.pdf_buffer = generate_pdf_file(final_no, st.session_state.invoice_items)
     st.session_state.editing_no = final_no
     st.cache_data.clear(); st.rerun()
