@@ -41,7 +41,8 @@ try:
     ws_inv = client.worksheet(INV_SHEET)
     ws_item = client.worksheet(ITEM_SHEET)
     
-    @st.cache_data(ttl=5)
+    # แก้ไข: เพิ่ม TTL เป็น 60 วินาที เพื่อลดปัญหา API Quota Exceeded [429]
+    @st.cache_data(ttl=60)
     def get_data_cached():
         inv = ws_inv.get_all_records()
         items = ws_item.get_all_records()
@@ -100,7 +101,6 @@ def generate_pdf_file(inv_no, items, data_dict=None):
         return st.session_state.get(f"in_{key}", default)
 
     for idx, label in enumerate(page_labels):
-        # --- ลายน้ำตัวเลขจางพิเศษ (0.03) ---
         c.saveState()
         c.setFont(FONT_NAME, 200)
         c.setFillAlpha(0.05) 
@@ -242,7 +242,12 @@ def generate_pdf_file(inv_no, items, data_dict=None):
     return buf
 
 # ================= 4. MAIN UI =================
-st.title("🚚 ใบกำกับขนส่ง JP PARTNER")
+col_title, col_link = st.columns([3, 1])
+with col_title:
+    st.title("🚚 ใบกำกับขนส่ง JP PARTNER")
+with col_link:
+    st.write("") 
+    st.link_button("📂 เปิดฐานข้อมูล (Google Sheets)", f"https://docs.google.com/spreadsheets/d/{SHEET_ID}", use_container_width=True)
 
 with st.expander("🔍 ค้นหา/แก้ไข/พิมพ์บิลเก่า"):
     if not inv_df.empty:
