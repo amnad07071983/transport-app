@@ -226,10 +226,10 @@ def generate_pdf_file(inv_no, items, data_dict=None):
         c.drawCentredString(16.5*cm, sig_y-0.6*cm, f"( {get_val('การยืนยันและรับสินค้า-ผู้รับสินค้า')} )")
         
         c.setFont(FONT_NAME, 11)
-        c.drawCentredString(4.5*cm, sig_y-1.2*cm, "ผู้ออกเอกสาร")
+        c.drawCentredString(4.5*cm, sig_y-1.2*cm, "ผู้ออกใบกำกับขนส่งน้ำมัน")
         c.drawCentredString(4.5*cm, sig_y-1.7*cm, "วันที่ : ..................................")
         
-        c.drawCentredString(10.5*cm, sig_y-1.2*cm, "พนักงานขับรถ")
+        c.drawCentredString(10.5*cm, sig_y-1.2*cm, "ผู้ดำเนินการขนส่งน้ำมัน")
         c.drawCentredString(10.5*cm, sig_y-1.7*cm, "วันที่ : ..................................")
         
         c.drawCentredString(16.5*cm, sig_y-1.2*cm, "ผู้รับสินค้า")
