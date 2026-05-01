@@ -295,7 +295,7 @@ with tabs[3]:
 
 if st.button("💾 บันทึกและอัปเดต PDF", type="primary", use_container_width=True):
     def get_next_no():
-        prefix = f"INV-{datetime.now().year}-{datetime.now().month:02d}"
+        prefix = f"JPP-{datetime.now().year}-{datetime.now().month:02d}"
         if inv_df.empty: return f"{prefix}-0001"
         curr = inv_df[inv_df[INV_KEY].astype(str).str.startswith(prefix)]
         if curr.empty: return f"{prefix}-0001"
