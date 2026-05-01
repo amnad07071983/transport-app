@@ -1,10 +1,4 @@
-import base64
-
-# Create a placeholder image to ensure the code can be tested/run
-with open('p1.png', 'wb') as f:
-    f.write(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="))
-
-full_code = """import streamlit as st
+import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
@@ -67,7 +61,7 @@ transport_fields = [
     "ข้อมูลพนักงานขับรถ-ชื่อ", "ข้อมูลพนักงานขับรถ-เลขใบขับขี่", "ข้อมูลพนักงานขับรถ-เบอร์โทร", "ข้อมูลพนักงานขับรถ-ทะเบียนรถ",
     "ข้อมูลพนักงานขับรถ-วิธีขนส่ง", "ข้อมูลพนักงานขับรถ-วันออกเดินทาง", "ข้อมูลพนักงานขับรถ-เวลาออกเดินทาง",
     "ข้อมูลพนักงานขับรถ-วันที่ถึงปลายทาง", "ข้อมูลพนักงานขับรถ-เวลาที่ถึงปลายทาง",
-    "การยืนยันและรับสินค้า-ผู้ออกเอกสาร", "การยืนยันและรับสินค้า-พนักงานขับรถ", "การืนยันและรับสินค้า-ผู้รับสินค้า",
+    "การยืนยันและรับสินค้า-ผู้ออกเอกสาร", "การยืนยันและรับสินค้า-พนักงานขับรถ", "การยืนยันและรับสินค้า-ผู้รับสินค้า",
     "ผู้จำหน่าย-ชื่อ", "ผู้จำหน่าย-ที่อยู่", "ผู้จำหน่าย-เลขผู้เสียภาษี", "ผู้จำหน่าย-เบอร์โทร",
     "ผู้จำหน่าย-ชื่อเอกสาร", "ผู้จำหน่าย-อธิบายเพิ่ม"
 ]
@@ -112,6 +106,20 @@ def generate_pdf_file(inv_no, items, data_dict=None):
         c.setFont(FONT_NAME, 10)
         c.drawString(1.5*cm, h-0.8*cm, label)
 
+        # --- ส่วนที่ปรับปรุงตำแหน่งรูปภาพ ---
+        try:
+            if os.path.exists('p1.png'):
+                c.saveState()
+                # ปรับความชัดของรูป (Alpha) เป็น 1.0 หรือตามต้องการ 
+                c.setFillAlpha(1.0) 
+                img_w = 3.5*cm # ปรับขนาดความกว้างรูปตามเหมาะสม
+                img_h = 3.5*cm # ปรับขนาดความสูงรูปตามเหมาะสม
+                # วางไว้มุมบนขวา (x ประมาณ 16cm, y อยู่ใต้บรรทัดวันที่ h-3.6cm)
+                c.drawImage('p1.png', 16*cm, h-7.5*cm, width=img_w, height=img_h, mask='auto')
+                c.restoreState()
+        except: pass
+        # --------------------------------
+
         c.setFont(FONT_NAME, 14)
         c.drawString(1.5*cm, h-1.5*cm, "1.ผู้จำหน่าย")
         
@@ -129,18 +137,6 @@ def generate_pdf_file(inv_no, items, data_dict=None):
         header_x_right = 13*cm + (1 * inch)
         c.drawString(header_x_right, h-3.1*cm, f"เลขที่ : {inv_no}")
         c.drawString(header_x_right, h-3.6*cm, f"วันที่ : {data_dict.get('date') if data_dict else st.session_state.get('form_date', '')}")
-
-        # --- แก้ไข: ย้ายรูปภาพไปมุมบนขวา ใต้บรรทัดวันที่ ---
-        try:
-            if os.path.exists('p1.png'):
-                c.saveState()
-                c.setFillAlpha(1.0) # ปรับความเข้มรูปภาพ
-                img_w = 3.5*cm
-                img_h = 3.5*cm
-                # วางตำแหน่ง x ด้านขวา, y อยู่ต่ำกว่าวันที่ (h-3.6cm)
-                c.drawImage('p1.png', 16*cm, h-7.5*cm, width=img_w, height=img_h, mask='auto')
-                c.restoreState()
-        except: pass
 
         c.line(1*cm, h-4.0*cm, 20*cm, h-4.0*cm)
 
@@ -247,78 +243,78 @@ def generate_pdf_file(inv_no, items, data_dict=None):
     return buf
 
 # ================= 4. MAIN UI =================
-st.title(\"🚚 ใบกำกับขนส่ง JP POWER PLUS\")
+st.title("🚚 ใบกำกับขนส่ง JP POWER PLUS")
 
-with st.expander(\"🔍 ค้นหา/แก้ไข/พิมพ์บิลเก่า\"):
+with st.expander("🔍 ค้นหา/แก้ไข/พิมพ์บิลเก่า"):
     if not inv_df.empty:
-        options = [f\"{r[INV_KEY]} | {r.get('ผู้รับสินค้า-ชื่อ', '')}\" for _, r in inv_df.iterrows()]
-        selected = st.selectbox(\"เลือกบิล\", [\"\"] + options[::-1])
+        options = [f"{r[INV_KEY]} | {r.get('ผู้รับสินค้า-ชื่อ', '')}" for _, r in inv_df.iterrows()]
+        selected = st.selectbox("เลือกบิล", [""] + options[::-1])
         if selected:
-            sel_no = selected.split(\" | \")[0]
+            sel_no = selected.split(" | ")[0]
             col_a, col_b, col_c = st.columns(3)
             row_data = inv_df[inv_df[INV_KEY] == sel_no].iloc[0].to_dict()
-            it_rows = item_df[item_df[\"invoice_no\"] == sel_no].to_dict('records')
-            if col_a.button(\"📝 โหลดมาแก้ไข\"):
+            it_rows = item_df[item_df["invoice_no"] == sel_no].to_dict('records')
+            if col_a.button("📝 โหลดมาแก้ไข"):
                 st.session_state.editing_no = sel_no
                 st.session_state.form_date = str(row_data.get('date', st.session_state.form_date))
-                for f in transport_fields: st.session_state[f\"in_{f}\"] = str(row_data.get(f, \"\"))
-                st.session_state.invoice_items = [{\"product\": i.get('product',''), \"unit\": i.get('unit',''), \"qty\": i.get('qty',''), \"tank\": str(i.get('tank','')), \"seal\": str(i.get('seal',''))} for i in it_rows]
+                for f in transport_fields: st.session_state[f"in_{f}"] = str(row_data.get(f, ""))
+                st.session_state.invoice_items = [{"product": i.get('product',''), "unit": i.get('unit',''), "qty": i.get('qty',''), "tank": str(i.get('tank','')), "seal": str(i.get('seal',''))} for i in it_rows]
                 st.session_state.pdf_buffer = generate_pdf_file(sel_no, st.session_state.invoice_items)
                 st.rerun()
-            if col_b.button(\"🔄 โหลดมาสร้างซ้ำ\"):
+            if col_b.button("🔄 โหลดมาสร้างซ้ำ"):
                 st.session_state.editing_no = None
-                for f in transport_fields: st.session_state[f\"in_{f}\"] = str(row_data.get(f, \"\"))
-                st.session_state.invoice_items = [{\"product\": i.get('product',''), \"unit\": i.get('unit',''), \"qty\": i.get('qty',''), \"tank\": str(i.get('tank','')), \"seal\": str(i.get('seal',''))} for i in it_rows]
+                for f in transport_fields: st.session_state[f"in_{f}"] = str(row_data.get(f, ""))
+                st.session_state.invoice_items = [{"product": i.get('product',''), "unit": i.get('unit',''), "qty": i.get('qty',''), "tank": str(i.get('tank','')), "seal": str(i.get('seal',''))} for i in it_rows]
                 st.session_state.pdf_buffer = None
                 st.rerun()
             quick_pdf = generate_pdf_file(sel_no, it_rows, data_dict=row_data)
-            col_c.download_button(\"📥 ดาวน์โหลด PDF (ทันที)\", data=quick_pdf, file_name=f\"Invoice_{sel_no}.pdf\", mime=\"application/pdf\")
+            col_c.download_button("📥 ดาวน์โหลด PDF (ทันที)", data=quick_pdf, file_name=f"Invoice_{sel_no}.pdf", mime="application/pdf")
 
-tabs = st.tabs([\"📦 ข้อมูล-ต้นทาง-ปลายทาง\", \"🚛 ผู้ขนส่ง\", \"⛽ สินค้าที่ขนย้าย\", \"🏢 ผู้จัดจำหน่าย\"])
+tabs = st.tabs(["📦 ข้อมูล-ต้นทาง-ปลายทาง", "🚛 ผู้ขนส่ง", "⛽ สินค้าที่ขนย้าย", "🏢 ผู้จัดจำหน่าย"])
 with tabs[0]:
-    for f in transport_fields[0:11]: st.text_input(f, key=f\"in_{f}\")
+    for f in transport_fields[0:11]: st.text_input(f, key=f"in_{f}")
 with tabs[1]:
-    for f in transport_fields[11:26]: st.text_input(f, key=f\"in_{f}\")
+    for f in transport_fields[11:26]: st.text_input(f, key=f"in_{f}")
 with tabs[2]:
     ca, cb, cc, cd, ce = st.columns([3,1,1,2,2])
-    p_n = ca.text_input(\"รายการ\", key=\"t_n\")
-    p_u = cb.text_input(\"หน่วย\", value=\"ลิตร\", key=\"t_u\")
-    p_q = cc.text_input(\"จำนวน\", key=\"t_q\")
-    p_p = cd.text_input(\"ช่องถัง\", key=\"t_p\")
-    p_a = ce.text_input(\"ซีล\", key=\"t_a\")
-    if st.button(\"➕ เพิ่มรายการสินค้า\"):
+    p_n = ca.text_input("รายการ", key="t_n")
+    p_u = cb.text_input("หน่วย", value="ลิตร", key="t_u")
+    p_q = cc.text_input("จำนวน", key="t_q")
+    p_p = cd.text_input("ช่องถัง", key="t_p")
+    p_a = ce.text_input("ซีล", key="t_a")
+    if st.button("➕ เพิ่มรายการสินค้า"):
         if p_n and p_q:
-            st.session_state.invoice_items.append({\"product\":p_n, \"unit\":p_u, \"qty\":p_q, \"tank\":p_p, \"seal\":p_a})
+            st.session_state.invoice_items.append({"product":p_n, "unit":p_u, "qty":p_q, "tank":p_p, "seal":p_a})
             st.rerun()
-    st.markdown(\"---\")
+    st.markdown("---")
     if st.session_state.invoice_items:
         df_items = pd.DataFrame(st.session_state.invoice_items)
-        edited_df = st.data_editor(df_items, num_rows=\"dynamic\", use_container_width=True, key=\"logistics_editor\")
+        edited_df = st.data_editor(df_items, num_rows="dynamic", use_container_width=True, key="logistics_editor")
         if not edited_df.equals(df_items): st.session_state.invoice_items = edited_df.to_dict('records')
-        if st.button(\"🗑️ ล้างรายการสินค้าทั้งหมด\"): st.session_state.invoice_items = []; st.rerun()
+        if st.button("🗑️ ล้างรายการสินค้าทั้งหมด"): st.session_state.invoice_items = []; st.rerun()
 
 with tabs[3]:
-    st.session_state.form_date = st.text_input(\"วันที่\", value=st.session_state.form_date)
-    for f in transport_fields[26:]: st.text_input(f, key=f\"in_{f}\")
+    st.session_state.form_date = st.text_input("วันที่", value=st.session_state.form_date)
+    for f in transport_fields[26:]: st.text_input(f, key=f"in_{f}")
 
-if st.button(\"💾 บันทึกและอัปเดต PDF\", type=\"primary\", use_container_width=True):
+if st.button("💾 บันทึกและอัปเดต PDF", type="primary", use_container_width=True):
     def get_next_no():
-        prefix = f\"JPP-{datetime.now().year}-{datetime.now().month:02d}\"
-        if inv_df.empty: return f\"{prefix}-0001\"
+        prefix = f"JPP-{datetime.now().year}-{datetime.now().month:02d}"
+        if inv_df.empty: return f"{prefix}-0001"
         curr = inv_df[inv_df[INV_KEY].astype(str).str.startswith(prefix)]
-        if curr.empty: return f\"{prefix}-0001\"
+        if curr.empty: return f"{prefix}-0001"
         suffixes = curr[INV_KEY].apply(lambda x: int(str(x).split('-')[-1]))
         max_val = suffixes.max()
-        return f\"{prefix}-{int(max_val)+1:04d}\"
+        return f"{prefix}-{int(max_val)+1:04d}"
     
     final_no = st.session_state.editing_no if st.session_state.editing_no else get_next_no()
-    new_data = [final_no, st.session_state.form_date] + [st.session_state[f\"in_{f}\"] for f in transport_fields]
+    new_data = [final_no, st.session_state.form_date] + [st.session_state[f"in_{f}"] for f in transport_fields]
 
     if st.session_state.editing_no:
         try:
             cell = ws_inv.find(final_no)
             if cell:
-                ws_inv.update(f\"A{cell.row}\", [new_data])
+                ws_inv.update(f"A{cell.row}", [new_data])
             found_items = ws_item.findall(final_no)
             for cell_it in reversed(found_items):
                 ws_item.delete_rows(cell_it.row)
@@ -334,9 +330,5 @@ if st.button(\"💾 บันทึกและอัปเดต PDF\", type=\"
     st.cache_data.clear(); st.rerun()
 
 if st.session_state.pdf_buffer:
-    st.download_button(\"📥 ดาวน์โหลด PDF\", data=st.session_state.pdf_buffer, file_name=f\"Invoice_{st.session_state.editing_no}.pdf\", mime=\"application/pdf\", use_container_width=True)
-    if st.button(\"🆕 เริ่มบิลใหม่\"): reset_form_action(); st.rerun()
-\"\"\"
-
-with open('app.py', 'w', encoding='utf-8') as f:
-    f.write(full_code)
+    st.download_button("📥 ดาวน์โหลด PDF", data=st.session_state.pdf_buffer, file_name=f"Invoice_{st.session_state.editing_no}.pdf", mime="application/pdf", use_container_width=True)
+    if st.button("🆕 เริ่มบิลใหม่"): reset_form_action(); st.rerun()
