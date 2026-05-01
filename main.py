@@ -100,7 +100,7 @@ def generate_pdf_file(inv_no, items, data_dict=None):
         # --- ส่วนของโค้ดตัวเลขลายน้ำ idx+0 ถูกนำออกแล้ว ---
 
         c.setFont(FONT_NAME, 10)
-        c.drawString(1.5*cm, h-0.10*cm, label)
+        c.drawString(1.5*cm, h-0.8*cm, label)
 
         # --- ส่วนที่ปรับปรุงตำแหน่งรูปภาพ ---
         try:
@@ -109,7 +109,7 @@ def generate_pdf_file(inv_no, items, data_dict=None):
                 c.setFillAlpha(1.0) 
                 img_w = 3.5*cm 
                 img_h = 3.5*cm 
-                c.drawImage('p1.png', 16*cm, h-8.5*cm, width=img_w, height=img_h, mask='auto')
+                c.drawImage('p1.png', 16*cm, h-8.0*cm, width=img_w, height=img_h, mask='auto')
                 c.restoreState()
         except: pass
 
