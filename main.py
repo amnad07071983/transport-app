@@ -109,7 +109,7 @@ def generate_pdf_file(inv_no, items, data_dict=None):
                 c.setFillAlpha(1.0) 
                 img_w = 3.5*cm 
                 img_h = 3.5*cm 
-                c.drawImage('p1.png', 16*cm, h-7.5*cm, width=img_w, height=img_h, mask='auto')
+                c.drawImage('p1.png', 16*cm, h-10.5*cm, width=img_w, height=img_h, mask='auto')
                 c.restoreState()
         except: pass
 
