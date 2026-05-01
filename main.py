@@ -97,11 +97,7 @@ def generate_pdf_file(inv_no, items, data_dict=None):
         return st.session_state.get(f"in_{key}", default)
 
     for idx, label in enumerate(page_labels):
-        c.saveState()
-        c.setFont(FONT_NAME, 200)
-        c.setFillAlpha(0.05) 
-        c.drawRightString(19*cm, h-10*cm, f"{idx + 0}")
-        c.restoreState()
+        # --- ส่วนของโค้ดตัวเลขลายน้ำ idx+0 ถูกนำออกแล้ว ---
 
         c.setFont(FONT_NAME, 10)
         c.drawString(1.5*cm, h-0.8*cm, label)
@@ -110,15 +106,12 @@ def generate_pdf_file(inv_no, items, data_dict=None):
         try:
             if os.path.exists('p1.png'):
                 c.saveState()
-                # ปรับความชัดของรูป (Alpha) เป็น 1.0 หรือตามต้องการ 
                 c.setFillAlpha(1.0) 
-                img_w = 3.5*cm # ปรับขนาดความกว้างรูปตามเหมาะสม
-                img_h = 3.5*cm # ปรับขนาดความสูงรูปตามเหมาะสม
-                # วางไว้มุมบนขวา (x ประมาณ 16cm, y อยู่ใต้บรรทัดวันที่ h-3.6cm)
+                img_w = 3.5*cm 
+                img_h = 3.5*cm 
                 c.drawImage('p1.png', 16*cm, h-7.5*cm, width=img_w, height=img_h, mask='auto')
                 c.restoreState()
         except: pass
-        # --------------------------------
 
         c.setFont(FONT_NAME, 14)
         c.drawString(1.5*cm, h-1.5*cm, "1.ผู้จำหน่าย")
