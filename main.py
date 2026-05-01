@@ -100,7 +100,7 @@ def generate_pdf_file(inv_no, items, data_dict=None):
         # --- ส่วนของโค้ดตัวเลขลายน้ำ idx+0 ถูกนำออกแล้ว ---
 
         c.setFont(FONT_NAME, 10)
-        c.drawString(1.5*cm, h-0.8*cm, label)
+        c.drawString(1.5*cm, h-0.10*cm, label)
 
         # --- ส่วนที่ปรับปรุงตำแหน่งรูปภาพ ---
         try:
