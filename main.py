@@ -100,7 +100,7 @@ def generate_pdf_file(inv_no, items, data_dict=None):
         c.saveState()
         c.setFont(FONT_NAME, 200)
         c.setFillAlpha(0.05) 
-        c.drawRightString(19*cm, h-10*cm, f"{idx + 1}")
+        c.drawRightString(19*cm, h-10*cm, f"{idx + 0}")
         c.restoreState()
 
         c.setFont(FONT_NAME, 10)
